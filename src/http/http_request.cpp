@@ -96,6 +96,9 @@ int http_request::_make_request()
         }
 
         if (_pd->_req_url->get_query().size() > 0) {
+            if (_pd->_req_url->get_query().at(0) != '?') {
+                ss << "?";
+            }
             ss << _pd->_req_url->get_query();
         }
         ss << " HTTP/1.1\r\n";
@@ -125,6 +128,9 @@ int http_request::_make_request()
         }
 
         if (_pd->_req_url->get_query().size() > 0) {
+            if (_pd->_req_url->get_query().at(0) != '?') {
+                ss << "?";
+            }
             ss << _pd->_req_url->get_query();
         }
 
@@ -161,6 +167,7 @@ int http_request::_make_request()
     _pd->_req_buffer->clear();
     _pd->_req_buffer->append(ss.str());
 
+    log_d("make_request, req_buffer: %s", _pd->_req_buffer->c_str());
     return 0;
 }
 
@@ -567,7 +574,7 @@ void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const 
     }
 
     if (pthis->_pd->status_code != HTTP_STATUS_OK) {
-        log_t("status code != 200");
+        log_t("status code != 200, status_code:%d", pthis->_pd->status_code);
     }
 
 

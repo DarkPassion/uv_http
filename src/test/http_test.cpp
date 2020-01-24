@@ -10,6 +10,96 @@
 
 NS_CC_BEGIN
 
+    class data_url
+    {
+    public:
+        data_url();
+
+        ~data_url();
+
+        void parse(const std::string& url_s);
+
+    public:
+        std::string protocol_, host_, path_, query_, port_, full_url_;
+
+    private:
+    DISALLOW_COPY_AND_ASSIGN(data_url);
+
+    };
+
+    data_url::data_url()
+    {
+
+    }
+
+
+    data_url::~data_url()
+    {
+
+    }
+
+
+    void data_url::parse(const std::string& url_s)
+    {
+        if (url_s.length() == 0)
+            return ;
+
+        if (full_url_.compare(url_s) != 0) {
+            full_url_ = url_s;
+        }
+        std::string::const_iterator uriEnd = url_s.end();
+
+        // get query start
+        std::string::const_iterator queryStart = std::find(url_s.begin(), uriEnd, '?');
+
+        // protocol
+        std::string::const_iterator protocolStart = url_s.begin();
+        std::string::const_iterator protocolEnd = std::find(protocolStart, uriEnd, ':');            //"://");
+
+        if (protocolEnd != uriEnd)
+        {
+            std::string prot = &*(protocolEnd);
+            if ((prot.length() > 3) && (prot.substr(0, 3) == "://"))
+            {
+                protocol_ = std::string(protocolStart, protocolEnd);
+                protocolEnd += 3;   //      ://
+            } else {
+                protocolEnd = url_s.begin();  // no protocol
+            }
+        } else {
+            protocolEnd = url_s.begin();  // no protocol
+        }
+
+        // host
+        std::string::const_iterator hostStart = protocolEnd;
+        std::string::const_iterator pathStart = std::find(hostStart, uriEnd, '/');  // get pathStart
+
+        std::string::const_iterator hostEnd = std::find(protocolEnd,
+                                                        (pathStart != uriEnd) ? pathStart : queryStart,
+                                                        ':');  // check for port
+
+        host_ = std::string(hostStart, hostEnd);
+
+        // port
+        if ((hostEnd != uriEnd) && ((&*(hostEnd))[0] == ':'))  // we have a port
+        {
+            hostEnd++;
+            std::string::const_iterator  portEnd = (pathStart != uriEnd) ? pathStart : queryStart;
+            port_ = std::string(hostEnd, portEnd);
+        }
+
+        // path
+        if (pathStart != uriEnd) {
+            path_ = std::string(pathStart, queryStart);
+        }
+
+        // query
+        if (queryStart != uriEnd) {
+            query_ = std::string(queryStart, url_s.end());
+        }
+
+
+    }
 
 http_test::http_test()
 {
@@ -89,7 +179,7 @@ void http_test::__test_http_url()
 
 void http_test::__test_http_request()
 {
-    const char* url = "http://agroup.baidu.com/ala/md/article/1295370";
+    const char* url = "http://www.baidu.com/kw?str=1234";
     http_request* req = new http_request(url);
     int ret = req->do_work();
     log_d("req->do_work, ret = %d", ret);
