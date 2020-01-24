@@ -73,7 +73,8 @@ file(GLOB CPP_SRC
         src/util/*.cpp src/util/*.cc
         src/http/*.cpp src/http/*.cc
         src/client/*.cpp src/client/*.cc
-        src/server/*.cpp src/server/*.cc)
+        src/server/*.cpp src/server/*.cc
+        src/test/*.cpp src/test/*.cc)
 
 
 add_executable(uv-http ${DEPS_SRC} ${C_SRC} ${CPP_SRC} ${uv_sources})

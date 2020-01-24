@@ -18,9 +18,11 @@ NS_CC_BEGIN
 class http_url {
 
 public:
-    http_url(const char* url);
+    http_url();
 
     ~http_url();
+
+    int reset_url(const char* url);
 
     std::string get_full_url();
 
@@ -32,7 +34,9 @@ public:
 
     std::string get_query();
 
-    int16_t get_port();
+    std::string get_port();
+
+    int16_t get_int16_port();
 
     bool is_https();
 
@@ -56,7 +60,8 @@ private:
     std::string _query;
     std::string _fragment;
     std::string _userinfo;
-    int16_t     _port;
+    std::string _port;
+    int16_t     _port_i16;
     uint8_t     _state;
 };
 

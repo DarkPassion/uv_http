@@ -48,4 +48,8 @@
 
 #define ARRAY_SIZE(x)       ((sizeof(x)) / (sizeof(x[0])))
 
+#define SOCKET_TIMEOT_MS        (5000)
+
+
+
 #endif //UV_HTTP_DEFINE_H

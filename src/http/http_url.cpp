@@ -24,23 +24,29 @@ static const char* HTTP = "http";
 static const char* HTTPS = "https";
 
 
-http_url::http_url(const char* url) : _full_url(url)
+http_url::http_url()
 {
     _host.clear();
     _query.clear();
     _path.clear();
-    _port = 0;
+    _port.clear();
+    _port_i16 = 0;
     _state = URL_IDLE;
-    int ret = _parse_url();
-    if (ret == 0) {
-        _state = URL_PARSEED;
-    }
-    log_t("_parse_url ret:%d", ret);
 }
 
 http_url::~http_url()
 {
 
+}
+
+int http_url::reset_url(const char *url)
+{
+    _full_url = url;
+    int ret = _parse_url();
+    if (ret == 0) {
+        _state = URL_PARSEED;
+    }
+    return _state == URL_PARSEED ? 0 : -1;
 }
 
 std::string http_url::get_full_url()
@@ -69,9 +75,14 @@ std::string http_url::get_query()
 }
 
 
-int16_t http_url::get_port()
+std::string http_url::get_port()
 {
     return _port;
+}
+
+int16_t http_url::get_int16_port()
+{
+    return _port_i16;
 }
 
 bool http_url::is_https()
@@ -145,17 +156,18 @@ int http_url::_parse_url()
     _query = query;
     _fragment = fragment;
     _userinfo = userinfo;
+    _port = port;
 
     if (strlen(port) > 0) {
-        _port = std::strtol(port, NULL, 10);
+        _port_i16 = std::strtol(port, NULL, 10);
     } else if (strcmp(HTTP, schema) == 0) {
-        _port = 80;
+        _port_i16 = 80;
     } else if (strcmp(HTTPS, schema) == 0) {
-        _port = 443;
+        _port_i16 = 443;
     }
 
     log_d("scheam:%s host:%s path:%s query:%s fragment:%s userinfo:%s port:%d",
-            schema, host, path, query, fragment, userinfo, _port);
+            schema, host, path, query, fragment, userinfo, _port_i16);
     return 0;
 }
 
