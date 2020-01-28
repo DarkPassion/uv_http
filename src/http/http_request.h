@@ -27,7 +27,7 @@ NS_CC_BEGIN
 
 class http_url;
 class http_header;
-
+class http_chunk;
 class http_request {
 
 public:
@@ -65,6 +65,7 @@ private:
         std::string* _req_buffer;
         http_url* _req_url;
 
+        http_chunk* _chunk;
         http_header* _res_header;
         std::string* res_buffer;
 

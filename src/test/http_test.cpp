@@ -6,104 +6,13 @@
 #include "http/http_header.h"
 #include "http/http_url.h"
 #include "http/http_request.h"
+#include "util/utils.h"
 #include "util/logger.h"
 
 NS_CC_BEGIN
 
-    class data_url
-    {
-    public:
-        data_url();
-
-        ~data_url();
-
-        void parse(const std::string& url_s);
-
-    public:
-        std::string protocol_, host_, path_, query_, port_, full_url_;
-
-    private:
-    DISALLOW_COPY_AND_ASSIGN(data_url);
-
-    };
-
-    data_url::data_url()
-    {
-
-    }
-
-
-    data_url::~data_url()
-    {
-
-    }
-
-
-    void data_url::parse(const std::string& url_s)
-    {
-        if (url_s.length() == 0)
-            return ;
-
-        if (full_url_.compare(url_s) != 0) {
-            full_url_ = url_s;
-        }
-        std::string::const_iterator uriEnd = url_s.end();
-
-        // get query start
-        std::string::const_iterator queryStart = std::find(url_s.begin(), uriEnd, '?');
-
-        // protocol
-        std::string::const_iterator protocolStart = url_s.begin();
-        std::string::const_iterator protocolEnd = std::find(protocolStart, uriEnd, ':');            //"://");
-
-        if (protocolEnd != uriEnd)
-        {
-            std::string prot = &*(protocolEnd);
-            if ((prot.length() > 3) && (prot.substr(0, 3) == "://"))
-            {
-                protocol_ = std::string(protocolStart, protocolEnd);
-                protocolEnd += 3;   //      ://
-            } else {
-                protocolEnd = url_s.begin();  // no protocol
-            }
-        } else {
-            protocolEnd = url_s.begin();  // no protocol
-        }
-
-        // host
-        std::string::const_iterator hostStart = protocolEnd;
-        std::string::const_iterator pathStart = std::find(hostStart, uriEnd, '/');  // get pathStart
-
-        std::string::const_iterator hostEnd = std::find(protocolEnd,
-                                                        (pathStart != uriEnd) ? pathStart : queryStart,
-                                                        ':');  // check for port
-
-        host_ = std::string(hostStart, hostEnd);
-
-        // port
-        if ((hostEnd != uriEnd) && ((&*(hostEnd))[0] == ':'))  // we have a port
-        {
-            hostEnd++;
-            std::string::const_iterator  portEnd = (pathStart != uriEnd) ? pathStart : queryStart;
-            port_ = std::string(hostEnd, portEnd);
-        }
-
-        // path
-        if (pathStart != uriEnd) {
-            path_ = std::string(pathStart, queryStart);
-        }
-
-        // query
-        if (queryStart != uriEnd) {
-            query_ = std::string(queryStart, url_s.end());
-        }
-
-
-    }
-
 http_test::http_test()
 {
-
 }
 
 
@@ -117,6 +26,7 @@ void http_test::run_test()
 //    __test_http_header();
 //    __test_http_url();
     __test_http_request();
+//    __test_utils_string();
 }
 
 
@@ -179,13 +89,31 @@ void http_test::__test_http_url()
 
 void http_test::__test_http_request()
 {
-    const char* url = "http://www.baidu.com/kw?str=1234";
+    M_ASSERT(false, "expr false");
+    const char* url = "http://www.baidu.com/kw=k1256";
     http_request* req = new http_request(url);
     int ret = req->do_work();
     log_d("req->do_work, ret = %d", ret);
     delete req;
 }
 
+void http_test::__test_utils_string()
+{
+    {
+        const char* test_str = "1234\r\n12abc\r\n34klm\r\n897opq";
+        std::vector<std::string> vects;
+        utils::string_split(test_str, vects, "\r\n");
+        for (size_t p = 0; p < vects.size(); p++) {
+            log_d("vects.[%zu]:%s", p, vects[p].c_str());
+        }
+    }
+
+    {
+        std::string str  = " k1 k2 k3 k4 k5 \t";
+        utils::string_trim(str);
+        log_d("string_trim, str:%s", str.c_str());
+    }
+}
 
 NS_CC_END
 

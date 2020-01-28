@@ -16,6 +16,7 @@
 #include "http/http_request.h"
 #include "http/http_url.h"
 #include "http/http_header.h"
+#include "http/http_chunk.h"
 #include "util/logger.h"
 
 NS_CC_BEGIN
@@ -112,7 +113,8 @@ int http_request::_make_request()
 
         ss << "Accept: */*" << "\r\n";
         ss << "User-Agent: http_client_v1.0" << "\r\n";
-        ss << "Connection: close" << "\r\n";
+//        ss << "Connection: close" << "\r\n";
+        ss << "Connection: keep-alive" << "\r\n";
         if (_pd->_req_header) {
             ss << *(_pd->_req_header);
         }
@@ -152,7 +154,8 @@ int http_request::_make_request()
 
         ss << "Accept: */*" << "\r\n";
         ss << "User-Agent: http_client_v1.0" << "\r\n";
-        ss << "Connection: close" << "\r\n";
+//        ss << "Connection: close" << "\r\n";
+        ss << "Connection: keep-alive" << "\r\n";
         ss << "\r\n";
 
         if (_pd->_req_body) {
@@ -249,7 +252,7 @@ int http_request::_init_private_data()
     _pd->_settings.on_body = &http_request::_static_parser_set_resp_body;
     _pd->_settings.on_header_field = &http_request::_static_parser_header_data;
 
-
+    _pd->_chunk = new http_chunk();
     _pd->_res_header = new http_header();
     _pd->res_buffer = new std::string();
     _pd->_req_url = new http_url();
@@ -266,6 +269,11 @@ int http_request::_deinit_private_data()
 
     int ret = _deinit_uv();
     log_t("deinit_uv, ret = %d", ret);
+
+    if (_pd->_chunk) {
+        delete _pd->_chunk;
+        _pd->_chunk = NULL;
+    }
 
     if (_pd->_req_buffer) {
         delete _pd->_req_buffer;
@@ -563,7 +571,6 @@ void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const 
 
     size_t recved = nread;
     size_t nparsed = http_parser_execute(pthis->_pd->_paser, &(pthis->_pd->_settings), buf->base, nread);
-
     log_d("http_parser_execute, buf:%s ", buf->base);
 
     if (nparsed != recved) {
@@ -573,12 +580,18 @@ void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const 
         return ;
     }
 
+    ret = pthis->_pd->_chunk->input_data(buf->base, nread);
+    if (ret != 0) {
+        log_t("http_chunk.input_data fail, ret:%d", ret);
+    }
+
     if (pthis->_pd->status_code != HTTP_STATUS_OK) {
         log_t("status code != 200, status_code:%d", pthis->_pd->status_code);
     }
 
 
-    if (pthis->_pd->stop_flags > 0) {
+    if (pthis->_pd->stop_flags > 0 || pthis->_pd->_chunk->is_eof()) {
+        log_d("stop_flags:%d chunk_is_eof:%d ", pthis->_pd->stop_flags, pthis->_pd->_chunk->is_eof());
         /// stop timer
         if (uv_is_active((uv_handle_t*) pthis->_pd->_timer)) {
             uv_timer_stop(pthis->_pd->_timer);

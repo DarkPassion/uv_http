@@ -26,6 +26,8 @@ private:
 
     void __test_http_request();
 
+    void __test_utils_string();
+
 };
 
 NS_CC_END

@@ -50,6 +50,10 @@
 
 #define SOCKET_TIMEOT_MS        (5000)
 
-
+#ifdef DEBUG
+#define M_ASSERT(expr, msg)     utils::m_assert(#expr, expr, __FILE__, __LINE__, msg);
+#else
+#define M_ASSERT(expr, msg)
+#endif
 
 #endif //UV_HTTP_DEFINE_H
