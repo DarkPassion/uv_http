@@ -35,11 +35,19 @@ public:
 
     ~http_request();
 
+    int set_keep_alive(int on);
+
     int do_work();
 
     int stop_work();
 
-    enum {
+    int set_write_callback(void(*cb)(const char* buf, size_t len, void* data), void* user);
+
+    int set_response_callback(void(*cb)(int error, http_request* request, void* data), void* user);
+
+    int set_notify_callback(void(*cb)(int type, const char* buf, size_t len, void* data), void* user);
+
+    enum error_code {
         ERROR_SUCC = 0,
         ERROR_DNS_RESOLVE = 1,
         ERROR_CONNECT = 2,
@@ -48,6 +56,12 @@ public:
         ERROR_TIMEOUT = 5,
         ERROR_INTERNAL = 6,
     };
+
+    enum notify_code {
+        NOTIFY_CONNECT_IP = 1,
+        NOTIFY_STATUS_CODE,
+    };
+
 private:
     struct private_data
     {
@@ -67,11 +81,12 @@ private:
 
         http_chunk* _chunk;
         http_header* _res_header;
-        std::string* res_buffer;
+        std::string* res_body;
 
         int http_method;
         int status_code;
 
+        uint8_t keep_alive;
         uint8_t stop_flags;
         uint16_t error_code;
     };
@@ -91,6 +106,22 @@ private:
     int _connect_to_server(const char* host, int16_t port);
 
 
+private:
+    typedef void(* response_cb) (int error, http_request* request, void* data);
+    typedef void(* write_cb) (const char* buf, size_t len, void* data);
+    typedef void(* notify_cb) (int type, const char* buf, size_t len, void* data);
+
+    struct callback_t
+    {
+        response_cb rcb;
+        void* rcb_data;
+
+        write_cb  wcb;
+        void* wcb_data;
+
+        notify_cb ncb;
+        void* ncb_data;
+    };
 private:
     // uv callback
     static void buffer_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf);
@@ -112,8 +143,8 @@ private:
     static int _static_parser_set_resp_body(http_parser * parser, const char * at, size_t length);
     static int _static_parser_header_data(http_parser * parser, const char * at, size_t length);
 private:
-    private_data* _pd;
-
+    private_data    _pd;
+    callback_t      _callback;
 };
 
 NS_CC_END

@@ -86,13 +86,21 @@ void http_test::__test_http_url()
     }
 }
 
+void http_test::__http_request_notify_callback(int type, const char* buf, size_t len, void* data)
+{
+    log_d("__http_request_notify_callback, type:%d, buf:%s", type, buf);
+}
+
 
 void http_test::__test_http_request()
 {
     M_ASSERT(false, "expr false");
     const char* url = "http://www.baidu.com/kw=k1256";
     http_request* req = new http_request(url);
+    req->set_keep_alive(1);
+    req->set_notify_callback(&__http_request_notify_callback, this);
     int ret = req->do_work();
+
     log_d("req->do_work, ret = %d", ret);
     delete req;
 }

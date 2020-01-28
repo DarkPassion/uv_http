@@ -10,11 +10,6 @@
 
 NS_CC_BEGIN
 
-#define HTTP_CR                  '\r'
-#define HTTP_LF                  '\n'
-
-#define HTTP_TRANSFER_ENCODEING     "Transfer-Encoding"
-#define HTTP_TRANSFER_CHUNKED       "chunked"
 
 
 http_chunk::http_chunk()
@@ -97,6 +92,12 @@ int http_chunk::is_eof()
     return _is_eof;
 }
 
+
+int http_chunk::is_chunk_encode()
+{
+    return _is_chunked_encode;
+}
+
 int http_chunk::__find_chunk_body_pos(const char* data, int len)
 {
     if (data == NULL || len <= 0) {
@@ -155,6 +156,7 @@ int http_chunk::__find_transfer_encode(const char* data, int len)
                 if (head_k.compare(HTTP_TRANSFER_ENCODEING) == 0 && head_v.compare(HTTP_TRANSFER_CHUNKED) == 0) {
                     log_d("http transfer-encodeing: chunked");
                     _is_chunked_encode = 0x01;
+                    break;
                 }
             }
         }

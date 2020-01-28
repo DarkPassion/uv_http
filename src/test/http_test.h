@@ -28,6 +28,9 @@ private:
 
     void __test_utils_string();
 
+private:
+    static void __http_request_notify_callback(int type, const char* buf, size_t len, void* data);
+
 };
 
 NS_CC_END

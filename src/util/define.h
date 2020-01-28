@@ -47,8 +47,12 @@
 
 
 #define ARRAY_SIZE(x)       ((sizeof(x)) / (sizeof(x[0])))
-
 #define SOCKET_TIMEOT_MS        (5000)
+#define HTTP_CR                  '\r'
+#define HTTP_LF                  '\n'
+
+#define HTTP_TRANSFER_ENCODEING     "Transfer-Encoding"
+#define HTTP_TRANSFER_CHUNKED       "chunked"
 
 #ifdef DEBUG
 #define M_ASSERT(expr, msg)     utils::m_assert(#expr, expr, __FILE__, __LINE__, msg);

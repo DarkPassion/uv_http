@@ -21,6 +21,8 @@ public:
 
     int is_eof();
 
+    int is_chunk_encode();
+
     // [chunk size] [\r\n] [chunk data] [\r\n] [chunk size] [\r\n] [chunk data] [\r\n] [chunk size = 0] [\r\n] [\r\n]
     enum {
         CHUNK_HEADER_LENGTH = 1,
