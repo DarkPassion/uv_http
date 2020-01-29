@@ -160,7 +160,7 @@ int http_chunk::__find_transfer_encode(const char* data, int len)
                 utils::string_trim(head_k);
                 utils::string_trim(head_v);
 
-                if (head_k.compare(HTTP_TRANSFER_ENCODEING) == 0 && head_v.compare(HTTP_TRANSFER_CHUNKED) == 0) {
+                if (head_k.compare(HTTP_HEADER_TRANSFER_ENCODEING) == 0 && head_v.compare(HTTP_HEADER_TRANSFER_CHUNKED) == 0) {
                     log_d("http transfer-encodeing: chunked");
                     _is_chunked_encode = 0x01;
                     break;

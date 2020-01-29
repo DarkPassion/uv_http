@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "http/http_header.h"
+#include "util/utils.h"
 #include "util/logger.h"
 
 
@@ -13,7 +14,6 @@ NS_CC_BEGIN
 http_header::http_header()
 {
     state = kIndexName;
-    header_index = 0;
     headers_len = 64;
     headers_pos = 0;
     headers = (hd_data_t**) malloc(headers_len * sizeof(hd_data_t*));
@@ -42,7 +42,6 @@ http_header::~http_header()
 
 int http_header::append_data(const char *data, int len)
 {
-//    log_d("append_data, data:%s len:%d", data, len);
     if (headers_pos + 1 > headers_len) {
         int new_size = headers_len * 2;
         int ret = _expand_size(new_size);
@@ -61,15 +60,14 @@ int http_header::append_data(const char *data, int len)
         memcpy(headers[headers_pos]->value, data, nc);
         state = kIndexName;
         headers_pos++;
-        log_d("append_data value:%s, len:%d headers_pos:%d", headers[headers_pos]->value, len, headers_pos);
-
+        log_d("append_data value:%s, len:%d headers_pos:%d", headers[headers_pos-1]->value, len, headers_pos);
     }
     return 0;
 }
 
-const char* http_header::header_value_by_key(const char *key)
+std::string http_header::header_value_by_key(const char *key)
 {
-    const char* ret = "";
+    std::string ret;
     if (headers_pos == 0) {
         log_d("header_value_by_key, headers_pos:%d", headers_pos);
         return ret;
@@ -83,6 +81,34 @@ const char* http_header::header_value_by_key(const char *key)
 
     }
     return ret;
+}
+
+int http_header::get_content_length()
+{
+    std::string value = header_value_by_key(HTTP_HEADER_CONTENT_LENGTH);
+    if (value.size() == 0) {
+        return -1;
+    }
+
+    log_d("get_content_length len:%s", value.c_str());
+    int ret = std::strtol(value.c_str(), NULL, 10);
+    return ret;
+}
+
+bool http_header::is_chunked_encode()
+{
+    std::string value = header_value_by_key(HTTP_HEADER_TRANSFER_ENCODEING);
+    if (value.size() == 0) {
+        return false;
+    }
+
+    utils::string_trim(value);
+    log_d("Transfer-Encoding:%s", value.c_str());
+
+    if (value.compare(HTTP_HEADER_TRANSFER_CHUNKED) == 0) {
+        return true;
+    }
+    return false;
 }
 
 int http_header::_expand_size(int size)

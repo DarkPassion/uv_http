@@ -286,12 +286,17 @@ int http_request::_connect_to_server(const char *host, int16_t port)
 
 int http_request::_try_follow_location()
 {
-    log_d("_try_follow_location, status_code:%d, location:%s", _pd.status_code, _pd._res_header->header_value_by_key(HTTP_HEADER_LOCATION));
+    log_d("_try_follow_location, status_code:%d, location:%s", _pd.status_code, _pd._res_header->header_value_by_key(HTTP_HEADER_LOCATION).c_str());
 
     int ret = 0;
     std::string location_url = _pd._res_header->header_value_by_key(HTTP_HEADER_LOCATION);
 
-    if (_pd.status_code == HTTP_STATUS_FOUND && location_url.size() > 0) {
+    // 1. follow_location > 0
+    // 2. 301
+    // 3. 302
+    if (_pd.follow_location > 0 && location_url.size() > 0 &&
+        _pd.status_code == HTTP_STATUS_MOVED_PERMANENTLY &&
+        _pd.status_code == HTTP_STATUS_FOUND) {
         private_data my_pd;
         memset(&my_pd, 0, sizeof(private_data));
 
@@ -310,6 +315,11 @@ int http_request::_try_follow_location()
         ret = my_url.reset_url(location_url.c_str());
         if (ret != 0) {
             log_t("my_url.reset_url fail, ret:%d", ret);
+            return -1;
+        }
+
+        if (my_url.is_https()) {
+            log_t("my_url.is_https() true");
             return -1;
         }
 
@@ -497,13 +507,17 @@ void http_request::buffer_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf)
     buf->len = size;
 }
 
+void http_request::_static_uv_close_cb(uv_handle_t *handle)
+{
+    log_d("_static_uv_close_cb, handle:%p", handle);
+}
 
 void http_request::_static_uv_walk_cb(uv_handle_t* handle, void* arg)
 {
     log_d("uv_walk_cb handle:%p arg:%p", handle, arg);
     if (!uv_is_closing(handle)) {
         log_d("uv_walk_cb uv_close");
-        uv_close(handle, NULL);
+        uv_close(handle, _static_uv_close_cb);
     }
 }
 
@@ -691,8 +705,15 @@ void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const 
         log_t("http_chunk.input_data fail, ret:%d", ret);
     }
 
+    // content-length
+    bool is_eof = false;
+    if (pthis->_pd._res_header->get_content_length() > 0 &&
+        pthis->_pd._res_header->get_content_length() == pthis->_pd.res_body->size()) {
+        log_d("content-length:%d, http_body eq content-length", pthis->_pd._res_header->get_content_length());
+        is_eof = true;
+    }
 
-    if (pthis->_pd.stop_flags > 0 || pthis->_pd._chunk->is_eof()) {
+    if (pthis->_pd.stop_flags > 0 || pthis->_pd._chunk->is_eof() || is_eof) {
         log_d("stop_flags:%d chunk_is_eof:%d ", pthis->_pd.stop_flags, pthis->_pd._chunk->is_eof());
         /// stop timer
         if (uv_is_active((uv_handle_t*) pthis->_pd._timer)) {
@@ -787,7 +808,7 @@ int http_request::_static_parser_set_resp_body(http_parser *parser, const char *
     }
 
     // chunk encode body too large!
-    if (pthis->_pd._chunk->is_chunk_encode() == 0) {
+    if (pthis->_pd._chunk->is_chunk_encode() == 0 && pthis->_pd._res_header->get_content_length() > 0) {
         pthis->_pd.res_body->append(at, length);
     }
 

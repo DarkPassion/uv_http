@@ -131,6 +131,8 @@ private:
     // uv callback
     static void buffer_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf);
 
+    static void _static_uv_close_cb(uv_handle_t* handle);
+
     static void _static_uv_walk_cb(uv_handle_t* handle, void* arg);
 
     static void _static_uv_connect_cb(uv_connect_t *req, int status);

@@ -54,8 +54,8 @@ void http_test::__test_http_header()
             snprintf(buf, 64, "value = %d", j);
         }
 
-        const char* val = hh->header_value_by_key(buf);
-        log_d("hh val:%s", val == NULL ? "null" : val);
+        std::string val = hh->header_value_by_key(buf);
+        log_d("hh val:%s", val.c_str());
     }
 
     hh->dump();
@@ -104,7 +104,7 @@ void http_test::__test_http_request()
     }
 
     {
-        const char* url = "http://www.baidu.com/kw=k1256";
+        const char* url = "http://www.zhihu.com/";
         http_request* req = new http_request(url);
         req->set_keep_alive(1);
         req->set_notify_callback(&__http_request_notify_callback, this);
@@ -117,6 +117,7 @@ void http_test::__test_http_request()
         const char* url = "http://www.baidu.com/kw=k1256";
         http_request* req = new http_request(url);
         req->set_follow_location(1);
+        req->set_keep_alive(1);
         req->set_notify_callback(&__http_request_notify_callback, this);
         int ret = req->do_work();
         log_d("req->do_work, ret = %d", ret);

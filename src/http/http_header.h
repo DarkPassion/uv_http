@@ -6,7 +6,7 @@
 #define UV_HTTP_HTTP_HEADER_H
 
 #include "util/define.h"
-
+#include <string>
 
 
 NS_CC_BEGIN
@@ -20,21 +20,24 @@ public:
 
     int append_data(const char* data, int len);
 
-    const char* header_value_by_key(const char* key);
+    std::string header_value_by_key(const char* key);
+
+    int get_content_length();
+
+    bool is_chunked_encode();
 
     void dump();
-public:
+
+private:
+    int _expand_size(int size);
+
+    enum {
+        kMaxLen = 256,
+    };
 
     enum {
         kIndexName = 0,
         kIndexValue,
-    };
-
-    int _expand_size(int size);
-private:
-
-    enum {
-        kMaxLen = 256,
     };
 
 
@@ -46,7 +49,6 @@ private:
 
 
 private:
-    uint8_t     header_index;
     uint8_t     state;
     int         headers_pos;
     int         headers_len;
