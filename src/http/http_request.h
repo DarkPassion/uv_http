@@ -37,6 +37,8 @@ public:
 
     int set_keep_alive(int on);
 
+    int set_follow_location(int on);
+
     int do_work();
 
     int stop_work();
@@ -87,6 +89,7 @@ private:
         int status_code;
 
         uint8_t keep_alive;
+        uint8_t follow_location;
         uint8_t stop_flags;
         uint16_t error_code;
     };
@@ -104,6 +107,8 @@ private:
     int _write_request();
 
     int _connect_to_server(const char* host, int16_t port);
+
+    int _try_follow_location();
 
 
 private:

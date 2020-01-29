@@ -21,7 +21,6 @@
 
 NS_CC_BEGIN
 
-static const char* Location = "Location";
 
 
 http_request::http_request(const char* url, std::string* header, std::string* body, int method)
@@ -53,6 +52,7 @@ int http_request::do_work()
 
     // 1. make request
     int ret = 0;
+retry:
     ret = _make_request();
     if (ret != 0) {
         log_w("_make_request fail!");
@@ -67,8 +67,11 @@ int http_request::do_work()
     // 3. run loop
     uv_update_time(_pd._loop);
     uv_run(_pd._loop, UV_RUN_DEFAULT);
-
     log_t("uv_run end, error_code:%hu", _pd.error_code);
+
+    if (_try_follow_location() > 0) {
+        goto retry;
+    }
     return 0;
 }
 
@@ -86,6 +89,14 @@ int http_request::set_keep_alive(int on)
     _pd.keep_alive = on;
     return 0;
 }
+
+int http_request::set_follow_location(int on)
+{
+    log_d("set_follow_location, on:%d", on);
+    _pd.follow_location = on;
+    return 0;
+}
+
 
 int http_request::set_write_callback(void (*cb)(const char* buf, size_t len, void* data), void *user)
 {
@@ -273,6 +284,57 @@ int http_request::_connect_to_server(const char *host, int16_t port)
     return 0;
 }
 
+int http_request::_try_follow_location()
+{
+    log_d("_try_follow_location, status_code:%d, location:%s", _pd.status_code, _pd._res_header->header_value_by_key(HTTP_HEADER_LOCATION));
+
+    int ret = 0;
+    std::string location_url = _pd._res_header->header_value_by_key(HTTP_HEADER_LOCATION);
+
+    if (_pd.status_code == HTTP_STATUS_FOUND && location_url.size() > 0) {
+        private_data my_pd;
+        memset(&my_pd, 0, sizeof(private_data));
+
+#define SET_PD_FIELD_PTR(x)    { my_pd.x = _pd.x; _pd.x = NULL; }
+#define SET_PD_FIELD_INT(x)    { my_pd.x = _pd.x; }
+
+#define GET_PD_FIELD_PTR(x)    { _pd.x = my_pd.x; my_pd.x = NULL; }
+#define GET_PD_FIELD_INT(x)    { _pd.x = my_pd.x; }
+
+        SET_PD_FIELD_INT(http_method);
+        SET_PD_FIELD_PTR(_req_header);
+        SET_PD_FIELD_PTR(_req_body);
+
+
+        http_url my_url;
+        ret = my_url.reset_url(location_url.c_str());
+        if (ret != 0) {
+            log_t("my_url.reset_url fail, ret:%d", ret);
+            return -1;
+        }
+
+        ret = _deinit_private_data();
+        log_d("_try_follow_location, _deinit_private_data ret=%d", ret);
+
+        ret = _init_private_data();
+        log_d("_try_follow_location, _init_private_data ret = %d", ret);
+
+        GET_PD_FIELD_INT(http_method);
+        GET_PD_FIELD_PTR(_req_header);
+        GET_PD_FIELD_PTR(_req_body);
+
+        _pd._req_url->reset_url(my_url.get_full_url().c_str());
+        return 1;
+    }
+
+#undef GET_PD_FIELD_INT
+#undef GET_PD_FIELD_PTR
+
+#undef SET_PD_FIELD_PTR
+#undef SET_PD_FIELD_INT
+    return ret;
+}
+
 // private functions
 int http_request::_init_private_data()
 {
@@ -287,6 +349,7 @@ int http_request::_init_private_data()
     _pd._settings.on_status = &http_request::_static_parser_set_status_code;
     _pd._settings.on_body = &http_request::_static_parser_set_resp_body;
     _pd._settings.on_header_field = &http_request::_static_parser_header_data;
+    _pd._settings.on_header_value = &http_request::_static_parser_header_data;
 
     _pd._chunk = new http_chunk();
     _pd._res_header = new http_header();

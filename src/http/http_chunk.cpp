@@ -123,11 +123,18 @@ int http_chunk::__find_transfer_encode(const char* data, int len)
 
     // find first [\r\n]
     int apos = 0;
+    uint8_t afind_sp = 0;
     for (int i = 0; i < len - 1; i++) {
         if (data[i+0] == HTTP_CR && data[i+1] == HTTP_LF) {
             apos = i+2;
+            afind_sp = 1;
             break;
         }
+    }
+
+    if (afind_sp == 0) {
+        log_t("__find_transfer_encode fail find sp");
+        return -1;
     }
 
     std::string line;

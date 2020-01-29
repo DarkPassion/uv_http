@@ -53,6 +53,7 @@
 
 #define HTTP_TRANSFER_ENCODEING     "Transfer-Encoding"
 #define HTTP_TRANSFER_CHUNKED       "chunked"
+#define HTTP_HEADER_LOCATION        "Location"
 
 #ifdef DEBUG
 #define M_ASSERT(expr, msg)     utils::m_assert(#expr, expr, __FILE__, __LINE__, msg);

@@ -42,7 +42,7 @@ http_header::~http_header()
 
 int http_header::append_data(const char *data, int len)
 {
-    log_d("append_data, data:%s len:%d", data, len);
+//    log_d("append_data, data:%s len:%d", data, len);
     if (headers_pos + 1 > headers_len) {
         int new_size = headers_len * 2;
         int ret = _expand_size(new_size);
@@ -55,18 +55,26 @@ int http_header::append_data(const char *data, int len)
         memset(headers[headers_pos]->name, 0, kMaxLen);
         memcpy(headers[headers_pos]->name, data, nc);
         state = kIndexValue;
+        log_d("append_data name:%s, headers_pos:%d", headers[headers_pos]->name, headers_pos);
     } else if (state == kIndexValue) {
         memset(headers[headers_pos]->value, 0, kMaxLen);
         memcpy(headers[headers_pos]->value, data, nc);
         state = kIndexName;
         headers_pos++;
+        log_d("append_data value:%s, len:%d headers_pos:%d", headers[headers_pos]->value, len, headers_pos);
+
     }
     return 0;
 }
 
 const char* http_header::header_value_by_key(const char *key)
 {
-    const char* ret = NULL;
+    const char* ret = "";
+    if (headers_pos == 0) {
+        log_d("header_value_by_key, headers_pos:%d", headers_pos);
+        return ret;
+    }
+
     for (int i = 0; i < headers_pos; ++i) {
 
         if (strcmp(headers[i]->name, key) == 0) {

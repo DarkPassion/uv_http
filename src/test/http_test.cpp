@@ -94,15 +94,35 @@ void http_test::__http_request_notify_callback(int type, const char* buf, size_t
 
 void http_test::__test_http_request()
 {
-    M_ASSERT(false, "expr false");
-    const char* url = "http://www.baidu.com/kw=k1256";
-    http_request* req = new http_request(url);
-    req->set_keep_alive(1);
-    req->set_notify_callback(&__http_request_notify_callback, this);
-    int ret = req->do_work();
+    {
+        const char* url = "http://www.baidu.com/kw=k1256";
+        http_request* req = new http_request(url);
+        req->set_notify_callback(&__http_request_notify_callback, this);
+        int ret = req->do_work();
+        log_d("req->do_work, ret = %d", ret);
+        delete req;
+    }
 
-    log_d("req->do_work, ret = %d", ret);
-    delete req;
+    {
+        const char* url = "http://www.baidu.com/kw=k1256";
+        http_request* req = new http_request(url);
+        req->set_keep_alive(1);
+        req->set_notify_callback(&__http_request_notify_callback, this);
+        int ret = req->do_work();
+        log_d("req->do_work, ret = %d", ret);
+        delete req;
+    }
+
+    {
+        const char* url = "http://www.baidu.com/kw=k1256";
+        http_request* req = new http_request(url);
+        req->set_follow_location(1);
+        req->set_notify_callback(&__http_request_notify_callback, this);
+        int ret = req->do_work();
+        log_d("req->do_work, ret = %d", ret);
+        delete req;
+    }
+
 }
 
 void http_test::__test_utils_string()
