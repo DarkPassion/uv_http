@@ -24,6 +24,10 @@ public:
 
     static void string_trim(std::string& s);
 
+    static void url_encode(std::string& s, std::string& res);
+
+    static void url_decode(std::string& s, std::string& res);
+
     static void m_assert(const char* expr_str, bool expr, const char* file, int line, const char* msg);
 };
 

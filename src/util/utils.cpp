@@ -9,6 +9,36 @@
 
 NS_CC_BEGIN
 
+    static char __char_to_int(char ch);
+    static char __str_to_bin(char* s);
+
+    static char __char_to_int(char ch)
+    {
+        if (ch >= '0' && ch <= '9')
+        {
+            return (char)(ch - '0');
+        }
+        if (ch >= 'a' && ch <= 'f')
+        {
+            return (char)(ch - 'a' + 10);
+        }
+        if (ch >= 'A' && ch <= 'F')
+        {
+            return (char)(ch - 'A' + 10);
+        }
+        return -1;
+    }
+
+
+    static char __str_to_bin(char* p)
+    {
+        char buffer[2] = {0};
+        char ch;
+        buffer[0] = __char_to_int(p[0]);    // make the B to 11 -- 00001011
+        buffer[1] = __char_to_int(p[1]);    // make the 0 to 0 -- 00000000
+        ch = (buffer[0] << 4) | buffer[1];      // to change the BO to 10110000
+        return ch;
+    }
 
 void utils::string_split(const std::string &s, std::vector<std::string> &res, const std::string &delimiter)
 {
@@ -40,6 +70,55 @@ void utils::string_trim(std::string &s)
     string_trim_right(s);
 }
 
+void utils::url_encode(std::string& s, std::string &res)
+{
+    uint8_t* pdata = (unsigned char*)s.c_str();
+    char alnum[2] = {0};
+    char other[4] = {0};
+    for (size_t i = 0; i < s.length(); i++)
+    {
+        if (isalnum((uint8_t)s[i]))
+        {
+            snprintf(alnum, sizeof(alnum), "%c", s[i]);
+            res.append(alnum);
+        }
+        else if (isspace((uint8_t)s[i]))
+        {
+            res.append("+");
+        }
+        else
+        {
+            snprintf(other, sizeof(other), "%%%X%X", pdata[i] >> 4, pdata[i] % 16);
+            res.append(other);
+        }
+    }
+}
+
+void utils::url_decode(std::string &s, std::string &res)
+{
+    char sz_temp[2] = {0};
+    size_t i = 0;
+    while (i < s.length())
+    {
+        if (s[i] == '%')
+        {
+            sz_temp[0] = s[i + 1];
+            sz_temp[1] = s[i + 2];
+            res += __str_to_bin(sz_temp);
+            i = i + 3;
+        }
+        else if (s[i] == '+')
+        {
+            res += ' ';
+            i++;
+        }
+        else
+        {
+            res += s[i];
+            i++;
+        }
+    }
+}
 
 void utils::m_assert(const char* expr_str, bool expr, const char* file, int line, const char* msg)
 {

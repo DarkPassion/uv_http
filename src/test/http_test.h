@@ -26,6 +26,10 @@ private:
 
     void __test_http_request();
 
+    void __test_http_form();
+
+    void __test_url_encode_decode();
+
     void __test_utils_string();
 
 private:

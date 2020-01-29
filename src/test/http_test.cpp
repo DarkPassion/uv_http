@@ -6,6 +6,7 @@
 #include "http/http_header.h"
 #include "http/http_url.h"
 #include "http/http_request.h"
+#include "http/http_form.h"
 #include "util/utils.h"
 #include "util/logger.h"
 
@@ -25,7 +26,9 @@ void http_test::run_test()
 {
 //    __test_http_header();
 //    __test_http_url();
-    __test_http_request();
+//    __test_http_form();
+    __test_url_encode_decode();
+//    __test_http_request();
 //    __test_utils_string();
 }
 
@@ -124,6 +127,56 @@ void http_test::__test_http_request()
         delete req;
     }
 
+}
+
+void http_test::__test_url_encode_decode()
+{
+    {
+        std::string input = "https://www.google.com.hk/search?newwindow=1&safe=strict&hl=zh-CN&source=hp&ei=q_0wXtjeIsHm-Aa-to_ACA&q=std::string case compare&oq=std::string case compare&gs_l=psy-ab.3...15391951.15399300..15399458...0.0..0.0.0.......0....1..gws-wiz.....0.QWPpRJPKHI4&ved=0ahUKEwiY4MzV8KfnAhVBM94KHT7bA4gQ4dUDCAY&uact=5";
+
+        std::string res;
+        std::string output;
+
+        utils::url_encode(input, res);
+        utils::url_decode(res, output);
+
+        if (input.compare(output) == 0) {
+            log_d("url encode & decode succ");
+        }
+    }
+
+    {
+        // "abc"[nm]<;qwe>=!@#$%^&*()_+-
+        std::string input = "\"abc\"[nm]<;qwe>=!@#$%^&*()_+-";
+        std::string res;
+        std::string output;
+
+        utils::url_encode(input, res);
+        utils::url_decode(res, output);
+        if (input.compare(output) == 0) {
+            log_d("url encode & decode succ [%s]", res.c_str());
+        }
+
+    }
+
+}
+
+void http_test::__test_http_form()
+{
+    {
+        http_form form;
+        int ret = 0;
+        std::string header;
+        std::string body;
+        std::string file="111121212j3lk1j2kl3jlkjkl";
+        form.add_form_file_data(file, "test.log");
+
+        ret = form.get_header(&header);
+        log_d("get_header, ret:%d, header:%s", ret, header.c_str());
+        ret = form.get_body(&body);
+        log_d("get_body, ret:%d, body:%s", ret, body.c_str());
+
+    }
 }
 
 void http_test::__test_utils_string()
