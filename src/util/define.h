@@ -57,7 +57,7 @@
 #define HTTP_HEADER_CONTENT_LENGTH          "Content-Length"
 
 
-#ifdef DEBUG
+#if (defined (_DEBUG) || defined(DEBUG))
 #define M_ASSERT(expr, msg)     utils::m_assert(#expr, expr, __FILE__, __LINE__, msg);
 #else
 #define M_ASSERT(expr, msg)

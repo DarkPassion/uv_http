@@ -6,8 +6,13 @@
 #define UV_HTTP_HTTP_REQUEST_H
 
 #include <string>
+#include <vector>
 
 #include "util/define.h"
+#include "openssl/ssl.h"
+#include "openssl/bio.h"
+#include "openssl/err.h"
+#include "openssl/pem.h"
 
 
 #ifdef __cplusplus
@@ -28,6 +33,7 @@ NS_CC_BEGIN
 class http_url;
 class http_header;
 class http_chunk;
+class write_buffer;
 class http_request {
 
 public:
@@ -65,13 +71,30 @@ public:
     };
 
 private:
+    struct ssl_trans
+    {
+        SSL_CTX*    ctx;
+        SSL*        ssl;
+        BIO*        read_bio;
+        BIO*        write_bio;
+        write_buffer*   wb;
+        uint8_t     send_req;
+    };
+
+    struct send_data
+    {
+        uv_write_t  write;
+        uv_buf_t    buf;
+        void*       data;
+    };
+
+
     struct private_data
     {
         uv_loop_t* _loop;
         uv_tcp_t* _conn;
         uv_getaddrinfo_t* _addr;
         uv_timer_t* _timer;
-        uv_write_t* _conn_write;
         http_parser* _paser;
         http_parser_settings _settings;
 
@@ -81,6 +104,7 @@ private:
         std::string* _req_buffer;
         http_url* _req_url;
 
+        ssl_trans*  _trans;
         http_chunk* _chunk;
         http_header* _res_header;
         std::string* res_body;
@@ -110,6 +134,21 @@ private:
 
     int _try_follow_location();
 
+    int _input_http_parser_data(const char* data, int len);
+
+    int _init_ssl_trans();
+
+    int _deinit_ssl_trans();
+
+    int _ssl_trans_cycle();
+
+    int _ssl_trans_handle_error(int result);
+
+    int _ssl_trans_flush_read_bio();
+
+    int _ssl_trans_check_write_data();
+
+    int _ssl_trans_handle_disconnect();
 
 private:
     typedef void(* response_cb) (int error, http_request* request, void* data);

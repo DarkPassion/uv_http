@@ -5,14 +5,18 @@ project(uv-http)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
 set(UV_DIR deps/libuv)
+set(SSL_DIR deps/openssl)
+
 set(HTTP_PARSER_DIR deps/http-parser)
 
 include_directories(
         ${UV_DIR}/include/
         ${UV_DIR}/src/
+        ${SSL_DIR}/include/
         ${HTTP_PARSER_DIR}
-        src
-        )
+        src)
+
+link_directories(${SSL_DIR}/libs)
 
 set(uv_dir deps/libuv/src)
 set(uv_sources
@@ -79,7 +83,7 @@ file(GLOB CPP_SRC
 
 add_executable(uv-http ${DEPS_SRC} ${C_SRC} ${CPP_SRC} ${uv_sources})
 
-
+target_link_libraries(uv-http ssl crypto)
 #link_libraries(uv-http uv)
 
 

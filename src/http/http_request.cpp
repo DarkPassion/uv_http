@@ -18,10 +18,12 @@
 #include "http/http_header.h"
 #include "http/http_chunk.h"
 #include "util/logger.h"
+#include "util/write_buffer.h"
 
 NS_CC_BEGIN
 
 
+static void __uv_once_callback();
 
 http_request::http_request(const char* url, std::string* header, std::string* body, int method)
 {
@@ -294,9 +296,9 @@ int http_request::_try_follow_location()
     // 1. follow_location > 0
     // 2. 301
     // 3. 302
-    if (_pd.follow_location > 0 && location_url.size() > 0 &&
-        _pd.status_code == HTTP_STATUS_MOVED_PERMANENTLY &&
-        _pd.status_code == HTTP_STATUS_FOUND) {
+    if (_pd.follow_location > 0 &&
+        location_url.size() > 0 &&
+        (_pd.status_code == HTTP_STATUS_MOVED_PERMANENTLY || _pd.status_code == HTTP_STATUS_FOUND)) {
         private_data my_pd;
         memset(&my_pd, 0, sizeof(private_data));
 
@@ -315,12 +317,23 @@ int http_request::_try_follow_location()
         ret = my_url.reset_url(location_url.c_str());
         if (ret != 0) {
             log_t("my_url.reset_url fail, ret:%d", ret);
-            return -1;
-        }
 
-        if (my_url.is_https()) {
-            log_t("my_url.is_https() true");
-            return -1;
+            // location with relative path
+            if (location_url.at(0) == '/') {
+                std::string new_url;
+                new_url.append(_pd._req_url->get_schema());
+                new_url.append("://");
+                new_url.append(_pd._req_url->get_host());
+                if (_pd._req_url->get_port().size() > 0) {
+                    new_url.append(":");
+                    new_url.append(_pd._req_url->get_port());
+                    new_url.append(location_url);
+                }
+
+                location_url = new_url;
+            } else {
+                return -1;
+            }
         }
 
         ret = _deinit_private_data();
@@ -333,7 +346,7 @@ int http_request::_try_follow_location()
         GET_PD_FIELD_PTR(_req_header);
         GET_PD_FIELD_PTR(_req_body);
 
-        _pd._req_url->reset_url(my_url.get_full_url().c_str());
+        _pd._req_url->reset_url(location_url.c_str());
         return 1;
     }
 
@@ -344,6 +357,186 @@ int http_request::_try_follow_location()
 #undef SET_PD_FIELD_INT
     return ret;
 }
+
+static void __uv_once_callback()
+{
+    SSL_library_init();
+    SSL_load_error_strings();
+}
+
+int http_request::_init_ssl_trans()
+{
+    if (_pd._trans) {
+        return 0;
+    }
+
+    static uv_once_t once;
+    uv_once(&once, __uv_once_callback);
+
+
+    _pd._trans = new ssl_trans();
+    memset(_pd._trans, 0, sizeof(ssl_trans));
+
+    _pd._trans->ctx = SSL_CTX_new(SSLv23_client_method());
+    SSL_CTX_set_options(_pd._trans->ctx, SSL_OP_NO_SSLv2);
+
+    _pd._trans->ssl = SSL_new(_pd._trans->ctx);
+    _pd._trans->read_bio = BIO_new(BIO_s_mem());
+    _pd._trans->write_bio = BIO_new(BIO_s_mem());
+    _pd._trans->wb = new write_buffer();
+
+    SSL_set_bio(_pd._trans->ssl, _pd._trans->read_bio, _pd._trans->write_bio);
+
+    log_d("_init_ssl_trans");
+    return 0;
+}
+
+
+int http_request::_deinit_ssl_trans()
+{
+    if (_pd._trans == NULL) {
+        return 0;
+    }
+    log_d("_deinit_ssl_trans");
+    SSL_CTX_free(_pd._trans->ctx);
+    SSL_free(_pd._trans->ssl);
+
+    if (_pd._trans->wb) {
+        delete _pd._trans->wb;
+        _pd._trans->wb = NULL;
+    }
+
+    _pd._trans->ctx = NULL;
+    _pd._trans->ssl = NULL;
+
+    _pd._trans->read_bio = NULL;
+    _pd._trans->write_bio = NULL;
+    delete _pd._trans;
+    _pd._trans = NULL;
+    return 0;
+}
+
+int http_request::_ssl_trans_check_write_data()
+{
+    log_d("_ssl_trans_check_write_data");
+
+    if(SSL_is_init_finished(_pd._trans->ssl)) {
+        if ( _pd._req_buffer->size() > 0 && _pd._trans->send_req == 0) {
+            _pd._trans->send_req = 1;
+            int r = SSL_write(_pd._trans->ssl, _pd._req_buffer->c_str(), _pd._req_buffer->size());
+            log_d("SSL_write, r:%d", r);
+            _ssl_trans_handle_error(r);
+            _ssl_trans_flush_read_bio();
+        }
+    }
+    return 0;
+}
+
+int http_request::_ssl_trans_cycle()
+{
+    char buf[1024 * 4] = {0};
+    int bytes_read = 0;
+    if(!SSL_is_init_finished(_pd._trans->ssl)) {
+        log_d("_ssl_trans_cycle SSL_is_init_finished:0");
+        int r = SSL_connect(_pd._trans->ssl);
+        if(r < 0) {
+            _ssl_trans_handle_error(r);
+        }
+        _ssl_trans_check_write_data();
+    } else {
+        log_d("_ssl_trans_cycle SSL_is_init_finished:1");
+        // connect, check if there is encrypted data, or we need to send app data
+        int r = SSL_read(_pd._trans->ssl, buf, sizeof(buf));
+        if(r < 0) {
+            _ssl_trans_handle_error(r);
+        } else if(r > 0) {
+            log_d("SSL_read, buf:%s", buf);
+            r = _input_http_parser_data(buf, r);
+            if (r != 0) {
+                log_t("_input_http_parser_data fail, ret:%d", r);
+            }
+        }
+        _ssl_trans_check_write_data();
+    }
+    return 0;
+}
+
+
+int http_request::_ssl_trans_handle_error(int result)
+{
+    int error = SSL_get_error(_pd._trans->ssl, result);
+    if(error == SSL_ERROR_WANT_READ) { // wants to read from bio
+        _ssl_trans_flush_read_bio();
+    }
+    return 0;
+}
+
+int http_request::_ssl_trans_flush_read_bio()
+{
+    log_d("_ssl_trans_flush_read_bio ");
+
+    uint8_t* wb_data = NULL;
+    uint32_t wb_data_len = 0;
+    _pd._trans->wb->malloc_buffer(&wb_data, wb_data_len);
+    int bytes_read = 0;
+    while((bytes_read = BIO_read(_pd._trans->write_bio, wb_data, wb_data_len)) > 0) {
+        log_d("BIO_read, bytes_read:%d, size:%d", bytes_read, wb_data_len);
+        int ret = -1;
+        send_data* __send = new send_data;
+        memset(__send, 0, sizeof(send_data));
+        __send->write.data = __send;
+        __send->data = this;
+        __send->buf.base = (char*) wb_data;
+        __send->buf.len = bytes_read;
+
+        ret = uv_write(&__send->write, (uv_stream_t*) _pd._conn, &__send->buf, 1, _static_uv_write_cb);
+        if (ret != 0) {
+            log_t("uv_write failed %d ", ret);
+            _pd.error_code = ERROR_SOCKET_WRITE;
+            return -1;
+        }
+
+        if (uv_is_active((uv_handle_t*) _pd._timer)) {
+            uv_timer_stop(_pd._timer);
+        }
+
+        ret = uv_timer_start(_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOT_MS, 0);
+        if (ret != 0) {
+            log_t("_static_uv_connect_cb uv_timer_start failed");
+        }
+
+        _pd._trans->wb->malloc_buffer(&wb_data, wb_data_len);
+    }
+
+    int ret = _pd._trans->wb->free_buffer(wb_data);
+    log_d("wb->free_buffer, ret:%d", ret);
+
+    return 0;
+}
+
+int http_request::_ssl_trans_handle_disconnect()
+{
+    log_d("_ssl_trans_handle_disconnect ");
+    if (!SSL_is_init_finished(_pd._trans->ssl)) {
+        log_d("_ssl_trans_handle_disconnect, hands shake fail");
+        return 0;
+    }
+
+    // read ssl left data
+    char buf[1024 * 4] = {0};
+    int r = SSL_read(_pd._trans->ssl, buf, sizeof(buf));
+    if(r < 0) {
+        _ssl_trans_handle_error(r);
+    } else if(r > 0) {
+        log_d("SSL_read, buf:%s", buf);
+        r = _input_http_parser_data(buf, r);
+        if (r != 0) {
+            log_t("_input_http_parser_data fail, ret:%d", r);
+        }
+    }
+    return 0;
+}
+
 
 // private functions
 int http_request::_init_private_data()
@@ -373,6 +566,9 @@ int http_request::_deinit_private_data()
 {
     int ret = _deinit_uv();
     log_t("deinit_uv, ret = %d", ret);
+
+    ret = _deinit_ssl_trans();
+    log_t("_deinit_ssl_trans, ret = %d", ret);
 
     if (_pd._chunk) {
         delete _pd._chunk;
@@ -431,9 +627,6 @@ int http_request::_init_uv()
     uv_timer_init(_pd._loop, _pd._timer);
     _pd._timer->data = this;
 
-    _pd._conn_write = (uv_write_t*) malloc(sizeof(uv_write_t));
-    memset(_pd._conn_write, 0, sizeof(uv_write_t));
-    _pd._conn_write->data = this;
 
     _pd._addr = (uv_getaddrinfo_t*) malloc(sizeof(uv_getaddrinfo_t));
     memset(_pd._addr, 0, sizeof(uv_getaddrinfo_t));
@@ -492,11 +685,47 @@ int http_request::_deinit_uv()
     free(_pd._addr);
     _pd._addr = NULL;
 
-    free(_pd._conn_write);
-    _pd._conn_write = NULL;
     return 0;
 }
 
+
+int http_request::_input_http_parser_data(const char *data, int len)
+{
+    int ret = -1;
+    size_t nparsed = http_parser_execute(_pd._paser, &(_pd._settings), data, len);
+    log_d("http_parser_execute, buf:%s ", data);
+
+    if (nparsed != len) {
+        /// TODO: recv != nparsed
+        log_t(" nparsed != recved, retry");
+        return -1;
+    }
+
+    ret = _pd._chunk->input_data(data, len);
+    if (ret != 0) {
+        log_t("http_chunk.input_data fail, ret:%d", ret);
+    }
+
+    // content-length
+    bool is_eof = false;
+    if (_pd._res_header->get_content_length() > 0 &&
+        _pd._res_header->get_content_length() == _pd.res_body->size()) {
+        log_d("content-length:%d, http_body eq content-length", _pd._res_header->get_content_length());
+        is_eof = true;
+    }
+
+    if (_pd.stop_flags > 0 || _pd._chunk->is_eof() || is_eof) {
+        log_d("stop_flags:%d chunk_is_eof:%d ", _pd.stop_flags, _pd._chunk->is_eof());
+        /// stop timer
+        if (uv_is_active((uv_handle_t*) _pd._timer)) {
+            uv_timer_stop(_pd._timer);
+        }
+
+        /// stop socket
+        uv_read_stop((uv_stream_t*) _pd._conn);
+    }
+    return 0;
+}
 
 // uv callback
 
@@ -586,11 +815,36 @@ void http_request::_static_uv_connect_cb(uv_connect_t *req, int status)
         return;
     }
 
-    int ret = -1;
+    int ret = 0;
+    if (pthis->_callback.ncb) {
+        char ipv4[64] = {0};
+        ret = uv_ip4_name((struct sockaddr_in*) &pthis->_pd._saddr, ipv4, ARRAY_SIZE(ipv4));
+        if (ret == 0) {
+            pthis->_callback.ncb(NOTIFY_CONNECT_IP, ipv4, strlen(ipv4), pthis->_callback.ncb_data);
+        }
+    }
+
+    // is https;
+    if (pthis->_pd._req_url->is_https()) {
+        ret = pthis->_init_ssl_trans();
+        log_d("_init_ssl_trans, ret:%d", ret);
+
+        SSL_set_connect_state(pthis->_pd._trans->ssl);
+        ret = SSL_do_handshake(pthis->_pd._trans->ssl);
+        log_d("SSL_do_handshake, ret:%d", ret);
+        pthis->_ssl_trans_cycle();
+        return ;
+    }
+
     uv_buf_t buffs[1];
     buffs[0].base = (char*) pthis->_pd._req_buffer->c_str();
     buffs[0].len = pthis->_pd._req_buffer->length();
-    ret = uv_write(pthis->_pd._conn_write, (uv_stream_t*) pthis->_pd._conn, buffs, 1, _static_uv_write_cb);
+    send_data* wb = new send_data;
+    memset(wb, 0, sizeof(send_data));
+    wb->write.data = wb;
+    wb->data = pthis;
+
+    ret = uv_write(&wb->write, (uv_stream_t*) pthis->_pd._conn, buffs, 1, _static_uv_write_cb);
     if (ret != 0) {
         log_t("uv_write failed %d ", ret);
         pthis->_pd.error_code = ERROR_SOCKET_WRITE;
@@ -605,25 +859,19 @@ void http_request::_static_uv_connect_cb(uv_connect_t *req, int status)
     if (ret != 0) {
         log_t("_static_uv_connect_cb uv_timer_start failed");
     }
-
-    if (pthis->_callback.ncb) {
-        char ipv4[64] = {0};
-        ret = uv_ip4_name((struct sockaddr_in*) &pthis->_pd._saddr, ipv4, ARRAY_SIZE(ipv4));
-        if (ret == 0) {
-            pthis->_callback.ncb(NOTIFY_CONNECT_IP, ipv4, strlen(ipv4), pthis->_callback.ncb_data);
-        }
-    }
 }
 
 void http_request::_static_uv_write_cb(uv_write_t *req, int status)
 {
     log_d("_static_uv_write_cb, status:%d", status);
-    http_request* pthis = (http_request*) req->data;
-    if (pthis->_pd._conn_write != req) {
-        log_t("_conn_write != req");
-        pthis->_pd.error_code = ERROR_SOCKET_WRITE;
-        return ;
+    send_data* __send = (send_data*) req->data;
+    http_request* pthis = (http_request*) __send->data;
+
+    if (__send->buf.base != NULL && __send->buf.len > 0 && pthis && pthis->_pd._trans) {
+        int ret = pthis->_pd._trans->wb->free_buffer((uint8_t*) __send->buf.base);
+        log_d("_static_uv_write_cb free_buffer ret:%d", ret);
     }
+    delete __send;
 
     if (status == UV_ECANCELED) {
         log_t("_static_uv_write_cb has been close");
@@ -644,7 +892,6 @@ void http_request::_static_uv_write_cb(uv_write_t *req, int status)
         pthis->_pd.error_code = ERROR_SOCKET_READ;
     }
 }
-
 
 void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf)
 {
@@ -675,6 +922,9 @@ void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const 
                 uv_timer_stop(pthis->_pd._timer);
             }
         }
+
+        pthis->_ssl_trans_handle_disconnect();
+
         FREE_BUF(buf);
         return;
     }
@@ -689,39 +939,18 @@ void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const 
         log_t("_static_uv_read_cb uv_timer_start failed");
     }
 
-    size_t recved = nread;
-    size_t nparsed = http_parser_execute(pthis->_pd._paser, &(pthis->_pd._settings), buf->base, nread);
-    log_d("http_parser_execute, buf:%s ", buf->base);
-
-    if (nparsed != recved) {
-        /// TODO: recv != nparsed
-        log_t(" nparsed != recved, retry");
+    if (pthis->_pd._req_url->is_https()) {
+        int nwrite = BIO_write(pthis->_pd._trans->read_bio, buf->base, nread);
+        log_d("BIO_write, nwrite:%d", nwrite);
         FREE_BUF(buf);
+
+        pthis->_ssl_trans_cycle();
         return ;
     }
 
-    ret = pthis->_pd._chunk->input_data(buf->base, nread);
+    ret = pthis->_input_http_parser_data(buf->base, nread);
     if (ret != 0) {
-        log_t("http_chunk.input_data fail, ret:%d", ret);
-    }
-
-    // content-length
-    bool is_eof = false;
-    if (pthis->_pd._res_header->get_content_length() > 0 &&
-        pthis->_pd._res_header->get_content_length() == pthis->_pd.res_body->size()) {
-        log_d("content-length:%d, http_body eq content-length", pthis->_pd._res_header->get_content_length());
-        is_eof = true;
-    }
-
-    if (pthis->_pd.stop_flags > 0 || pthis->_pd._chunk->is_eof() || is_eof) {
-        log_d("stop_flags:%d chunk_is_eof:%d ", pthis->_pd.stop_flags, pthis->_pd._chunk->is_eof());
-        /// stop timer
-        if (uv_is_active((uv_handle_t*) pthis->_pd._timer)) {
-            uv_timer_stop(pthis->_pd._timer);
-        }
-
-        /// stop socket
-        uv_read_stop((uv_stream_t*) pthis->_pd._conn);
+        log_t("_input_http_parser_data fail, ret:%d", ret);
     }
 
     FREE_BUF(buf);
@@ -756,9 +985,6 @@ void http_request::_static_uv_socket_timer_cb(uv_timer_t *handle)
         log_d("uv_read_stop, ret=%d", ret);
     }
 }
-
-
-
 
 
 
