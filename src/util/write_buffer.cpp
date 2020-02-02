@@ -58,6 +58,7 @@ int write_buffer::malloc_buffer(uint8_t **data, uint32_t &len)
             memset(pd->data, 0, pd->data_len);
             _queue.push_back(pd);
         }
+        log_d("malloc_buffer, new_size:%zu", _queue.size());
     }
 
     int ret = -1;

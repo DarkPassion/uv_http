@@ -15,6 +15,8 @@
 #include "openssl/bio.h"
 #include "openssl/err.h"
 #include "openssl/pem.h"
+#include "openssl/aes.h"
+#include "openssl/rsa.h"
 
 NS_CC_BEGIN
 
@@ -35,9 +37,9 @@ void http_test::run_test()
 //    __test_http_form();
 //    __test_url_encode_decode();
 //    __test_utils_string();
-//    __test_openssl();
+    __test_openssl();
 //    __test_write_buffer();
-    __test_http_request();
+//    __test_http_request();
 }
 
 
@@ -227,75 +229,214 @@ void http_test::__test_utils_string()
     }
 }
 
-struct ssl_trans
+int http_test::__aes_decrypt(uint8_t* cipher_text, int cipher_text_len, uint8_t* key, uint8_t* iv, uint8_t* plain_text)
 {
-    SSL_CTX* ssl_ctx;
-    SSL* ssl;
-    BIO* read_bio;
-    BIO* write_bio;
-};
+    EVP_CIPHER_CTX *ctx;
 
-static void ssl_trans_on_event(ssl_trans*);
-static void ssl_trans_handle_error(ssl_trans*, int);
-static void ssl_trans_flush_read_bio(ssl_trans*);
+    int len;
 
-void http_test::__test_openssl()
+    int plaintext_len;
+    /* Create and initialise the context */
+    if(!(ctx = EVP_CIPHER_CTX_new()))
+        return -1;
+
+
+    if(1 != EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
+        return -1;
+
+    if(1 != EVP_DecryptUpdate(ctx, plain_text, &len, cipher_text, cipher_text_len))
+        return -1;
+    plaintext_len = len;
+
+    if(1 != EVP_DecryptFinal_ex(ctx, plain_text + len, &len))
+        return -1;
+    plaintext_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    return plaintext_len;
+}
+
+
+int http_test::__aes_encrpt(uint8_t* plain_text, int plain_text_len, uint8_t* key, uint8_t* iv, uint8_t* cipher_text)
 {
+    EVP_CIPHER_CTX *ctx;
+
+    int len;
+
+    int ciphertext_len;
+
+    /* Create and initialise the context */
+    if(!(ctx = EVP_CIPHER_CTX_new())) return -1;
+
+    if(1 != EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv))
+        return -1;
+
+    if(1 != EVP_EncryptUpdate(ctx, cipher_text, &len, plain_text, plain_text_len))
+        return -1;
+    ciphertext_len = len;
+
+    if(1 != EVP_EncryptFinal_ex(ctx, cipher_text + len, &len))
+        return -1;
+
+    ciphertext_len += len;
+
+    /* Clean up */
+    EVP_CIPHER_CTX_free(ctx);
+
+    return ciphertext_len;
+}
+
+
+void http_test::__test_openssl() {
     SSL_library_init();
     SSL_load_error_strings();
-    ssl_trans* session = new ssl_trans();
-    memset(session, 0, sizeof(ssl_trans));
+    OpenSSL_add_all_algorithms();
 
-    session->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
-    SSL_CTX_set_options(session->ssl_ctx, SSL_OP_NO_SSLv2);
-    session->ssl = SSL_new(session->ssl_ctx);
-    session->read_bio = BIO_new(BIO_s_mem());
-    session->write_bio = BIO_new(BIO_s_mem());
-    SSL_set_bio(session->ssl, session->read_bio, session->write_bio);
 
-    SSL_set_connect_state(session->ssl);
+    {
+        RSA *r = NULL;
+        BIGNUM *bne = NULL;
+        BIO *bp_public = NULL;
+        BIO *bp_private = NULL;
+        int bits = 2048;
 
-    int ret = SSL_do_handshake(session->ssl);
-    log_d("SSL_do_handshake, ret:%d", ret);
+        unsigned long e = RSA_F4;
+        // 1. generate rsa key
+        bne = BN_new();
+        int ret = BN_set_word(bne, e);
+        if (ret != 1) {
+            log_t("BN_set_word fail");
+        }
 
-    if(!SSL_is_init_finished(session->ssl)) {
-        ret = SSL_connect(session->ssl);
-        if (ret < 0) {
-            ssl_trans_handle_error(session, ret);
+        r = RSA_new();
+
+        ret = RSA_generate_key_ex(r, bits, bne, NULL);
+        if (ret != 1) {
+            log_t("RSA_generate_key_ex fail");
+        }
+
+        // 2. save public key
+        bp_public = BIO_new_file("public.pem", "w+");
+        ret = PEM_write_bio_RSAPublicKey(bp_public, r);
+        if (ret != 1) {
+            log_t("PEM_write_bio_RSAPublicKey fail");
+        }
+
+        // 3. save private key
+        bp_private = BIO_new_file("private.pem", "w+");
+        ret = PEM_write_bio_RSAPrivateKey(bp_private, r, NULL, NULL, 0, NULL, NULL);
+        if (ret != 1) {
+            log_t("PEM_write_bio_RSAPrivateKey fail");
+        }
+
+        // 4. check public key encode & private key decode
+        {
+            int status = RSA_check_key(r);
+            log_d("RSA_check_key, status:%d", status);
+            char src[] = "hello";
+            char out[1024] = {0};
+            char dst[1024] = {0};
+            int dst_len = 0;
+            int out_len = 0;
+            int flen = RSA_size(r);
+
+            status = RSA_public_encrypt(strlen(src), (uint8_t *) src, (uint8_t *) dst, r, RSA_PKCS1_PADDING);
+            log_d("RSA_private_encrypt, status:%d, flen:%d,  strlen(dst):%zu", status, flen, strlen(dst));
+            if (status > 0) {
+                dst_len = status;
+            }
+
+            status = RSA_private_decrypt(dst_len, (uint8_t *) dst, (uint8_t *) out, r, RSA_PKCS1_PADDING);
+            log_d("RSA_private_decrypt, status:%d, ", status);
+            if (status > 0) {
+                out_len = status;
+            }
+
+            if (dst_len > 0 && out_len > 0) {
+                log_d("src:%s out:%s", src, out);
+            }
+
+        }
+
+        // 5. check private key encode & public key decode
+        {
+            int status = RSA_check_key(r);
+            log_d("RSA_check_key, status:%d", status);
+            char src[] = "hello";
+            char out[1024] = {0};
+            char dst[1024] = {0};
+            int dst_len = 0;
+            int out_len = 0;
+            int flen = RSA_size(r);
+
+            status = RSA_private_encrypt(strlen(src), (uint8_t *) src, (uint8_t *) dst, r, RSA_PKCS1_PADDING);
+            log_d("RSA_private_encrypt, status:%d, flen:%d,  strlen(dst):%zu", status, flen, strlen(dst));
+            if (status > 0) {
+                dst_len = status;
+            }
+
+            status = RSA_public_decrypt(dst_len, (uint8_t *) dst, (uint8_t *) out, r, RSA_PKCS1_PADDING);
+            log_d("RSA_private_decrypt, status:%d, ", status);
+            if (status > 0) {
+                out_len = status;
+            }
+
+            if (dst_len > 0 && out_len > 0) {
+                log_d("src:%s out:%s", src, out);
+            }
+
+        }
+
+
+        // 6. free
+        BIO_free_all(bp_public);
+        BIO_free_all(bp_private);
+        RSA_free(r);
+        BN_free(bne);
+
+    }
+
+    // aes
+    {
+        EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+
+        char key_data[] = "#@()Zk";
+        char iv_data[] = {0x31, 0x32, 0x33, 0x34, 0x00};
+        char input_data[] = "hello";
+        int ret = 0;
+        uint8_t* cipher = (uint8_t*)malloc( 128 + AES_BLOCK_SIZE);
+        int cipher_len = 0;
+
+        ret = EVP_EncryptInit_ex(ctx, EVP_aes_256_cfb(), NULL, (uint8_t*) key_data, (uint8_t*) iv_data);
+        log_d("EVP_EncryptInit_ex, ret:%d", ret);
+
+        ret = EVP_EncryptUpdate(ctx, cipher, &cipher_len, (uint8_t*) input_data, strlen(input_data));
+        log_d("EVP_EncryptUpdate, ret:%d, cipher_len:%d, cipher:%s", ret, cipher_len, cipher);
+
+        int ciphertext_len = cipher_len;
+        ret = EVP_EncryptFinal_ex(ctx, cipher + cipher_len, &cipher_len);
+        log_d("EVP_EncryptFinal_ex, ret:%d, cipher_len:%d", ret, cipher_len);
+
+
+        {
+            char intput[] = "hello";
+            char key_data[] = "#@()Zk";
+            char iv_data[] = {0x31, 0x32, 0x33, 0x34, 0x00};
+            char encode_data[1024] = {0};
+            char decode_data[1024] = {0};
+
+            int encode_len = __aes_encrpt((uint8_t*) input_data, strlen(input_data),
+                    (uint8_t*) key_data, (uint8_t*) iv_data, (uint8_t*) encode_data);
+
+            int decode_len = __aes_decrypt((uint8_t*) encode_data, encode_len,
+                    (uint8_t*) key_data, (uint8_t*) iv_data, (uint8_t*) decode_data);
+
+            log_d("decode_data:%s input:%s, encode_len:%d, decode_len:%d", decode_data, input_data, encode_len, decode_len);
         }
     }
-
-    SSL_CTX_free(session->ssl_ctx);
-    SSL_free(session->ssl);
-//    BIO_free(session->write_bio);
-//    BIO_free(session->read_bio);
-
-
-    delete session;
-
 }
 
-static void ssl_trans_handle_error(ssl_trans* session, int result)
-{
-    log_d("ssl_trans_handle_error, result:%d", result);
-    int error = SSL_get_error(session->ssl, result);
-    if(error == SSL_ERROR_WANT_READ) { // wants to read from bio
-        ssl_trans_flush_read_bio(session);
-    }
-}
-
-static void ssl_trans_flush_read_bio(ssl_trans* session)
-{
-    log_d("ssl_trans_flush_read_bio");
-
-    char buf[1024*4];
-    int bytes_read = 0;
-    while((bytes_read = BIO_read(session->write_bio, buf, sizeof(buf))) > 0) {
-        log_d("ssl_trans_flush_read_bio, bytes_read:%d, buf:%s", bytes_read, buf);
-
-//        write_to_socket(c, buf, bytes_read);
-    }
-}
 
 void http_test::__test_write_buffer()
 {

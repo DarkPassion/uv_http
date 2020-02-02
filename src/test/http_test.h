@@ -36,6 +36,12 @@ private:
 
     void __test_write_buffer();
 
+
+    int __aes_encrpt(uint8_t* plain_text, int plain_text_len, uint8_t* key, uint8_t* iv, uint8_t* cipher_text);
+
+    int __aes_decrypt(uint8_t* cipher_text, int cipher_text_len, uint8_t* key, uint8_t* iv, uint8_t* plain_text);
+
+
 private:
     static void __http_request_notify_callback(int type, const char* buf, size_t len, void* data);
 
