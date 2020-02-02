@@ -85,6 +85,29 @@ int http_request::stop_work()
     return 0;
 }
 
+int http_request::get_result(http_result *result)
+{
+    if (result == NULL) {
+        log_d("get_result, result = null");
+        return -1;
+    }
+    result->error_code = 0;
+    result->status_code = 0;
+    result->content.clear();
+    result->connect_ip[0] = '\0';
+
+
+    result->status_code = _pd.status_code;
+    result->error_code = _pd.error_code;
+    result->content.append(*_pd.res_body);
+    int ret = uv_ip4_name((struct sockaddr_in*) &_pd._saddr, result->connect_ip, ARRAY_SIZE(result->connect_ip));
+    if (ret != 0) {
+        log_t("uv_ip4_name, fail");
+    }
+
+    return 0;
+}
+
 int http_request::set_keep_alive(int on)
 {
     log_d("set_keep_alive, on:%d", on);

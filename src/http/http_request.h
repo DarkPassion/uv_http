@@ -35,8 +35,9 @@ class http_header;
 class http_chunk;
 class write_buffer;
 class http_request {
-
 public:
+    struct http_result;
+
     http_request(const char* url, std::string* header = NULL, std::string* body = NULL, int method = HTTP_GET);
 
     ~http_request();
@@ -48,6 +49,8 @@ public:
     int do_work();
 
     int stop_work();
+
+    int get_result(http_result* result);
 
     int set_write_callback(void(*cb)(const char* buf, size_t len, void* data), void* user);
 
@@ -68,6 +71,14 @@ public:
     enum notify_code {
         NOTIFY_CONNECT_IP = 1,
         NOTIFY_STATUS_CODE,
+    };
+
+    struct http_result
+    {
+        int status_code;
+        char connect_ip[64];
+        uint16_t error_code;
+        std::string content;
     };
 
 private:

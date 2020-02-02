@@ -37,9 +37,9 @@ void http_test::run_test()
 //    __test_http_form();
 //    __test_url_encode_decode();
 //    __test_utils_string();
-    __test_openssl();
+//    __test_openssl();
 //    __test_write_buffer();
-//    __test_http_request();
+    __test_http_request();
 }
 
 
@@ -130,6 +130,28 @@ void http_test::__http_request_notify_callback(int type, const char* buf, size_t
 void http_test::__test_http_request()
 {
     {
+        const char* urls[] = {
+                "http://www.kuaidi100.com/query?type=yuantong&postid=11111111111",
+                "http://ip.taobao.com/service/getIpInfo.php?ip=63.223.108.42",
+                "https://tcc.taobao.com/cc/json/mobile_tel_segment.htm?tel=13211020001",
+                "https://suggest.taobao.com/sug?code=utf-8&q=%E6%89%8B%E6%9C%BA&callback=cb"
+        };
+
+
+        for (int i = 0; i < ARRAY_SIZE(urls); i++) {
+            http_request* req = new http_request(urls[i]);
+            req->set_notify_callback(&__http_request_notify_callback, this);
+            int ret = req->do_work();
+            http_request::http_result result;
+            req->get_result(&result);
+            log_d("req->do_work, ret = %d, result.res:%s, result.status_code:%d, result.error_code:%hu, result.connect_ip:%s",
+                  ret, result.content.c_str(), result.status_code, result.error_code, result.connect_ip);
+            delete req;
+        }
+
+    }
+
+    {
         const char* url = "http://www.baidu.com/kw=k1256";
         http_request* req = new http_request(url);
         req->set_notify_callback(&__http_request_notify_callback, this);
@@ -139,18 +161,23 @@ void http_test::__test_http_request()
         delete req;
     }
 
+
+
     {
         const char* url = "http://www.zhihu.com/";
         http_request* req = new http_request(url);
         req->set_keep_alive(1);
         req->set_notify_callback(&__http_request_notify_callback, this);
         int ret = req->do_work();
-        log_d("req->do_work, ret = %d", ret);
+        http_request::http_result result;
+        req->get_result(&result);
+        log_d("req->do_work, ret = %d, result.res:%s, result.status_code:%d, result.error_code:%hu, result.connect_ip:%s",
+                ret, result.content.c_str(), result.status_code, result.error_code, result.connect_ip);
         delete req;
     }
 
     {
-        const char* url = "http://www.baidu.com/kw=k1256";
+        const char* url = "http://www.baidu.com/query?kw=q1";
         http_request* req = new http_request(url);
         req->set_follow_location(1);
         req->set_keep_alive(1);
