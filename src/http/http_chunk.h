@@ -17,7 +17,9 @@ public:
 
     ~http_chunk();
 
-    int input_data(const char* data, int len);
+    int input_encode_data(const char* data, int len);
+
+    int input_raw_data(const char* data, int len);
 
     int is_eof();
 

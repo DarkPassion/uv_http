@@ -8,6 +8,7 @@
 #include "http/http_request.h"
 #include "http/http_form.h"
 #include "util/write_buffer.h"
+#include "server/http_server.h"
 
 #include "util/utils.h"
 #include "util/logger.h"
@@ -39,7 +40,8 @@ void http_test::run_test()
 //    __test_utils_string();
 //    __test_openssl();
 //    __test_write_buffer();
-    __test_http_request();
+//    __test_http_request();
+    __test_http_server();
 }
 
 
@@ -148,7 +150,6 @@ void http_test::__test_http_request()
                   ret, result.content.c_str(), result.status_code, result.error_code, result.connect_ip);
             delete req;
         }
-
     }
 
     {
@@ -487,6 +488,144 @@ void http_test::__test_write_buffer()
     }
 }
 
+
+void http_test::__test_http_server()
+{
+
+    http_server* server = new http_server();
+
+    int ret = server->start_server("127.0.0.1", 8080);
+
+    log_d("start_server, ret:%d", ret);
+
+    while (1) {
+        usleep(10 * 1000);
+    }
+
+}
+
+
+
+
+class http_parser_wrapper
+{
+public:
+    http_parser_wrapper();
+
+    ~http_parser_wrapper();
+
+    int parser_data(const char* in, size_t len);
+public:
+
+    static int http_data_header_field_cb(http_parser*, const char *at, size_t length);
+    static int http_data_header_value_cb(http_parser*, const char *at, size_t length);
+    static int http_data_header_complete(http_parser*);
+
+    static int http_data_url_cb(http_parser*, const char *at, size_t length);
+    static int http_data_message_begin(http_parser*);
+    static int http_data_message_complete(http_parser*);
+    static int http_data_chunk_complete(http_parser*);
+    static int http_data_chunk_header(http_parser*);
+
+private:
+    http_parser parser;
+    http_parser_settings settings;
+
+};
+
+    http_parser_wrapper::http_parser_wrapper()
+    {
+        http_parser_init(&parser, HTTP_REQUEST);
+        memset(&settings, 0, sizeof(http_parser_settings));
+
+        settings.on_header_field = &http_data_header_field_cb;
+        settings.on_header_value = &http_data_header_value_cb;
+        settings.on_url = &http_data_url_cb;
+        settings.on_message_begin = &http_data_message_begin;
+        settings.on_message_complete = &http_data_message_complete;
+        settings.on_chunk_complete = &http_data_chunk_complete;
+        settings.on_chunk_header = &http_data_chunk_header;
+        settings.on_headers_complete = &http_data_header_complete;
+        settings.on_message_complete = &http_data_header_complete;
+    }
+
+
+    http_parser_wrapper::~http_parser_wrapper()
+    {
+
+    }
+
+    int http_parser_wrapper::parser_data(const char *in, size_t len)
+    {
+        int np = http_parser_execute(&parser, &settings, in, len);
+        return np;
+    }
+
+    int http_parser_wrapper::http_data_header_field_cb(http_parser*, const char *at, size_t length)
+    {
+        log_d("http_data_header_field_cb");
+        char buf[URL_MAX_LEN] = {0};
+        if (length > 0 && length < URL_MAX_LEN) {
+            memcpy(buf, at, length);
+            log_d("http_data_header_field_cb, buf:%s", buf);
+        }
+        return 0;
+    }
+
+    int http_parser_wrapper::http_data_header_value_cb(http_parser*, const char *at, size_t length)
+    {
+        log_d("http_data_header_value_cb");
+        char buf[URL_MAX_LEN] = {0};
+        if (length > 0 && length < URL_MAX_LEN) {
+            memcpy(buf, at, length);
+            log_d("http_data_header_value_cb, buf:%s", buf);
+        }
+        return 0;
+    }
+
+    int http_parser_wrapper::http_data_header_complete(http_parser*)
+    {
+        log_d("http_data_header_complete");
+        return 0;
+    }
+
+    int http_parser_wrapper::http_data_url_cb(http_parser*, const char *at, size_t length)
+    {
+        log_d("http_data_url_cb");
+
+        char buf[URL_MAX_LEN] = {0};
+        if (length > 0 && length < URL_MAX_LEN) {
+            memcpy(buf, at, length);
+            log_d("http_data_url_cb, buf:%s", buf);
+        }
+        return 0;
+    }
+
+
+    int http_parser_wrapper::http_data_message_begin(http_parser*)
+    {
+        log_d("http_data_message_begin");
+        return 0;
+    }
+
+
+    int http_parser_wrapper::http_data_message_complete(http_parser*)
+    {
+        log_d("http_data_message_complete");
+        return 0;
+    }
+
+    int http_parser_wrapper::http_data_chunk_complete(http_parser*)
+    {
+        log_d("http_data_chunk_complete");
+        return 0;
+    }
+
+    int http_parser_wrapper::http_data_chunk_header(http_parser*)
+    {
+        log_d("http_data_chunk_header");
+        return 0;
+    }
 
 
 NS_CC_END

@@ -36,6 +36,8 @@ private:
 
     void __test_write_buffer();
 
+    void __test_http_server();
+
 
     int __aes_encrpt(uint8_t* plain_text, int plain_text_len, uint8_t* key, uint8_t* iv, uint8_t* cipher_text);
 

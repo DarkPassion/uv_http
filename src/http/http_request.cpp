@@ -64,6 +64,10 @@ retry:
 
     // 2. connect
     ret = _write_request();
+    if (ret != 0) {
+        log_w("_write_request fail");
+        return -1;
+    }
 
 
     // 3. run loop
@@ -724,7 +728,7 @@ int http_request::_input_http_parser_data(const char *data, int len)
         return -1;
     }
 
-    ret = _pd._chunk->input_data(data, len);
+    ret = _pd._chunk->input_encode_data(data, len);
     if (ret != 0) {
         log_t("http_chunk.input_data fail, ret:%d", ret);
     }
@@ -1057,7 +1061,7 @@ int http_request::_static_parser_set_resp_body(http_parser *parser, const char *
     }
 
     // chunk encode body too large!
-    if (pthis->_pd._chunk->is_chunk_encode() == 0 && pthis->_pd._res_header->get_content_length() > 0) {
+    if (/*pthis->_pd._chunk->is_chunk_encode() == 0 &&*/ pthis->_callback.wcb == NULL && pthis->_pd._res_header->get_content_length() > 0) {
         pthis->_pd.res_body->append(at, length);
     }
 

@@ -9,7 +9,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdint.h>
-
+#include <unistd.h>
+#include <string.h>
 
 
 
@@ -50,6 +51,8 @@
 #define SOCKET_TIMEOT_MS        (5000)
 #define HTTP_CR                  '\r'
 #define HTTP_LF                  '\n'
+#define URL_MAX_LEN             (1024)
+#define LISTEN_BACKLOG            (128)
 
 #define HTTP_HEADER_TRANSFER_ENCODEING     "Transfer-Encoding"
 #define HTTP_HEADER_TRANSFER_CHUNKED       "chunked"

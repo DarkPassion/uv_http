@@ -46,10 +46,6 @@ private:
         URL_PARSEED = 1,
     };
 
-    enum {
-        URL_MAX_LEN = 1024,
-    };
-
     int _parse_url();
 
 private:

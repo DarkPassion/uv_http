@@ -3,6 +3,7 @@
 //
 
 #include <algorithm>
+#include <sys/time.h>
 
 #include "util/utils.h"
 #include "util/logger.h"
@@ -70,6 +71,49 @@ void utils::string_trim(std::string &s)
     string_trim_right(s);
 }
 
+bool utils::string_start_with(const std::string &s, const std::string &p)
+{
+    return p.size() <= s.size() && std::equal(p.cbegin(), p.cend(), s.cbegin());
+}
+
+bool utils::string_end_with(const std::string &s, const std::string &p)
+{
+    return p.size() <= s.size() && std::equal(p.crbegin(), p.crend(), s.crbegin());
+}
+
+void utils::string_upper(std::string& s)
+{
+    std::string upper(s.size(), '\0');
+    std::transform(s.cbegin(), s.cend(), upper.begin(), ::toupper);
+    s = upper;
+}
+
+void utils::string_lower(std::string& s)
+{
+    std::string lower(s.size(), '\0');
+    std::transform(s.cbegin(), s.cend(), lower.begin(), ::tolower);
+    s = lower;
+}
+
+std::string utils::string_format(const char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    int len = vsnprintf(NULL, 0, fmt, ap);
+    va_end(ap);
+    std::string buf(len+1, '\0');
+    va_start(ap, fmt);
+    vsnprintf(&buf[0], buf.size(), fmt, ap);
+    va_end(ap);
+    buf.pop_back();
+    return buf;
+}
+
+
+
+
+
+
 void utils::url_encode(std::string& s, std::string &res)
 {
     uint8_t* pdata = (unsigned char*)s.c_str();
@@ -118,6 +162,17 @@ void utils::url_decode(std::string &s, std::string &res)
             i++;
         }
     }
+}
+
+
+uint64_t utils::get_timestamp()
+{
+        uint64_t ret;
+        struct timeval val;
+        gettimeofday(&val, NULL);
+
+
+        return val.tv_sec*1000 + val.tv_usec/1000;
 }
 
 void utils::m_assert(const char* expr_str, bool expr, const char* file, int line, const char* msg)

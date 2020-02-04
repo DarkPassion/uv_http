@@ -24,9 +24,21 @@ public:
 
     static void string_trim(std::string& s);
 
+    static bool string_start_with(const std::string& s, const std::string& p);
+
+    static bool string_end_with(const std::string& s, const std::string& p);
+
+    static void string_upper(std::string& s);
+
+    static void string_lower(std::string& s);
+
+    static std::string string_format(const char* fmt, ...);
+
     static void url_encode(std::string& s, std::string& res);
 
     static void url_decode(std::string& s, std::string& res);
+
+    static uint64_t get_timestamp();
 
     static void m_assert(const char* expr_str, bool expr, const char* file, int line, const char* msg);
 };

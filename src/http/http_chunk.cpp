@@ -32,7 +32,7 @@ http_chunk::~http_chunk()
 }
 
 
-int http_chunk::input_data(const char *data, int len)
+int http_chunk::input_encode_data(const char *data, int len)
 {
     int ret = -1;
     if (_body_begin == 0) {
@@ -46,7 +46,7 @@ int http_chunk::input_data(const char *data, int len)
     }
 
     if (_body_begin == 0 || _is_chunked_encode == 0) {
-        log_d("input_data body_begin no");
+        log_d("input_encode_data body_begin no");
         return 0;
     }
 
@@ -55,12 +55,12 @@ int http_chunk::input_data(const char *data, int len)
         M_ASSERT(len >= pos, "len >= pos fail");
         int ns = 0;
         if (len == pos) {
-            log_d("input_data len=pos: %d", len);
+            log_d("input_encode_data len=pos: %d", len);
             break;
         }
 
         if (_is_eof) {
-            log_d("input_data eof");
+            log_d("input_encode_data eof");
             break;
         }
         if (_state == CHUNK_HEADER_LENGTH) {
@@ -78,13 +78,20 @@ int http_chunk::input_data(const char *data, int len)
             }
             pos += ns;
         } else {
-            log_t("input_data error state _state ");
+            log_t("input_encode_data error state _state ");
             break;
         }
     }
 
     return 0;
 }
+
+int http_chunk::input_raw_data(const char *data, int len)
+{
+    return 0;
+}
+
+
 
 
 int http_chunk::is_eof()
