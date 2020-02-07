@@ -85,7 +85,7 @@ int http_header::add_data(const char *key, const char *val)
     return 0;
 }
 
-std::string http_header::header_value_by_key(const char *key)
+std::string http_header::get_value_by_key(const char *key)
 {
     std::string ret;
     if (headers_pos == 0) {
@@ -105,7 +105,7 @@ std::string http_header::header_value_by_key(const char *key)
 
 int http_header::get_content_length()
 {
-    std::string value = header_value_by_key(HTTP_HEADER_CONTENT_LENGTH);
+    std::string value = get_value_by_key(HTTP_HEADER_CONTENT_LENGTH);
     if (value.size() == 0) {
         return -1;
     }
@@ -117,7 +117,7 @@ int http_header::get_content_length()
 
 bool http_header::is_chunked_encode()
 {
-    std::string value = header_value_by_key(HTTP_HEADER_TRANSFER_ENCODEING);
+    std::string value = get_value_by_key(HTTP_HEADER_TRANSFER_ENCODEING);
     if (value.size() == 0) {
         return false;
     }

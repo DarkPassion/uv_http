@@ -17,12 +17,12 @@ public:
 
     ~http_header();
 
-
-    int append_data(const char* data, int len);
-
     int add_data(const char* key, const char* val);
 
-    std::string header_value_by_key(const char* key);
+    // response
+    int append_data(const char* data, int len);
+
+    std::string get_value_by_key(const char* key);
 
     int get_content_length();
 

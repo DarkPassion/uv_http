@@ -317,10 +317,10 @@ int http_request::_connect_to_server(const char *host, int16_t port)
 
 int http_request::_try_follow_location()
 {
-    log_d("_try_follow_location, status_code:%d, location:%s", _pd.status_code, _pd._res_header->header_value_by_key(HTTP_HEADER_LOCATION).c_str());
+    log_d("_try_follow_location, status_code:%d, location:%s", _pd.status_code, _pd._res_header->get_value_by_key(HTTP_HEADER_LOCATION).c_str());
 
     int ret = 0;
-    std::string location_url = _pd._res_header->header_value_by_key(HTTP_HEADER_LOCATION);
+    std::string location_url = _pd._res_header->get_value_by_key(HTTP_HEADER_LOCATION);
 
     // 1. follow_location > 0
     // 2. 301

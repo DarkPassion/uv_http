@@ -23,6 +23,7 @@ extern "C" {
 NS_CC_BEGIN
 
 class http_channel;
+class url_route;
 class http_server {
 
 public:
@@ -48,6 +49,12 @@ private:
     static void _static_uv_timer_callback(uv_timer_t* handle);
 private:
 
+    enum {
+        THERAD_IDEL = 0,
+        THREAD_PREPARE,
+        THREAD_RUN,
+        THREAD_END,
+    };
     struct private_data {
         uv_loop_t* _loop;
         uv_tcp_t* _server;
@@ -59,6 +66,7 @@ private:
         char bind_ip[64];
         uint16_t bind_port;
         uint8_t is_run;
+        url_route* _route;
     };
 
     typedef std::vector<http_channel*> channel_queue;

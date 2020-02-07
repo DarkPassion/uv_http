@@ -69,7 +69,7 @@ void http_test::__test_http_header()
             snprintf(buf, 64, "value = %d", j);
         }
 
-        std::string val = hh->header_value_by_key(buf);
+        std::string val = hh->get_value_by_key(buf);
         log_d("hh val:%s", val.c_str());
     }
 

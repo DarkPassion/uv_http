@@ -39,6 +39,8 @@ http_channel::http_channel(uv_loop_t* loop)
     _pd._settings.on_message_complete = &http_channel::_static_parser_message_complete;
 
     _pd._req_header = new http_header();
+    _pd._res_header = new http_header();
+
     memset(_pd._req_path, 0, ARRAY_SIZE(_pd._req_path));
     memset(_pd._req_host, 0, ARRAY_SIZE(_pd._req_host));
 
@@ -51,6 +53,20 @@ http_channel::~http_channel()
         uv_close((uv_handle_t*) _pd._client, _static_uv_close_callback);
     }
 
+    if (_pd._req_header) {
+        delete _pd._req_header;
+        _pd._req_header = NULL;
+    }
+
+    if (_pd._res_header) {
+        delete _pd._res_header;
+        _pd._res_header = NULL;
+    }
+
+    if (_pd._paser) {
+        free(_pd._paser);
+        _pd._paser = NULL;
+    }
 
     log_d("http_channel dctor");
 }
@@ -127,8 +143,9 @@ int http_channel::_input_parser_data(const char *data, size_t len)
 
 int http_channel::_make_response(char *data, int len)
 {
+#if 1
     const char* TPL = "HTTP/1.1 200 OK\r\n"
-                      "Server: nginx\r\n"
+                      "Server: uv_http_server\r\n"
                       "Content-Type: text/html;charset=UTF-8\r\n"
                       "Date: Fri, 07 Feb 2020 02:36:02 GMT\r\n"
                       "Cache-Control: no-cache\r\n"
@@ -140,6 +157,67 @@ int http_channel::_make_response(char *data, int len)
     int ns = snprintf(data, len, "%s", TPL);
     log_d("_make_response, ns:%d data:%s", ns, data);
     return ns;
+#endif
+
+#if 0
+    // [chunk size] [\r\n] [chunk data] [\r\n] [chunk size] [\r\n] [chunk data] [\r\n] [chunk size = 0] [\r\n] [\r\n]
+    const char* CHUNK_TPL = "HTTP/1.1 200 OK\r\n"
+                      "Server: uv_http_server\r\n"
+                      "Content-Type: text/html;charset=UTF-8\r\n"
+                      "Date: Fri, 07 Feb 2020 02:36:02 GMT\r\n"
+                      "Cache-Control: no-cache\r\n"
+                      "Connection: close\r\n"
+                      "Transfer-Encoding: chunked\r\n"
+                      "\r\n";
+
+    char chunk[1024] = {0};
+    int pos = 0;
+
+    int s = 12;
+    int ns = 0;
+    char str[128] = {0};
+    for (int i = 0; i < s; i++) {
+        str[i] = i;
+    }
+
+    // write size
+    ns = snprintf(chunk + pos, ARRAY_SIZE(chunk) - pos, "%x\r\n", s);
+    pos += ns;
+
+    // cp data
+    memcpy(chunk + pos, str, s);
+    pos += s;
+
+    // write '\r\n'
+    ns = snprintf(chunk + pos, ARRAY_SIZE(chunk) - pos, "\r\n");
+    pos += ns;
+
+    // write size
+    ns = snprintf(chunk + pos, ARRAY_SIZE(chunk) - pos, "%x\r\n", s);
+    pos += ns;
+
+    // cp data
+    memcpy(chunk + pos, str, s);
+    pos += s;
+
+    // write '\r\n'
+    ns = snprintf(chunk + pos, ARRAY_SIZE(chunk) - pos, "\r\n");
+    pos += ns;
+
+
+    ns = snprintf(chunk + pos, ARRAY_SIZE(chunk) - pos, "%x\r\n\r\n", 0);
+    pos += ns;
+
+
+
+    ns = snprintf(data, len, "%s", CHUNK_TPL);
+
+    if (ns + pos < len) {
+        memcpy(data + ns, chunk, pos);
+    }
+    log_d("_make_response, ns:%d data:%s", ns, data);
+    return ns + pos;
+#endif
 }
 
 // uv callback
@@ -241,7 +319,7 @@ int http_channel::_static_parser_header_complete(http_parser *parser)
     http_channel* pthis = (http_channel*) parser->data;
 
     // get host
-    std::string host = pthis->_pd._req_header->header_value_by_key("Host");
+    std::string host = pthis->_pd._req_header->get_value_by_key("Host");
     if (host.size() > 0) {
         snprintf(pthis->_pd._req_host, ARRAY_SIZE(pthis->_pd._req_host), "%s", host.c_str());
         log_d("_static_parser_header_complete, host:%s", pthis->_pd._req_host);

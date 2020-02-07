@@ -86,11 +86,6 @@ int http_chunk::input_encode_data(const char *data, int len)
     return 0;
 }
 
-int http_chunk::input_raw_data(const char *data, int len)
-{
-    return 0;
-}
-
 
 
 

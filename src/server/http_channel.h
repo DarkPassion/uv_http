@@ -62,6 +62,8 @@ private:
     static int _static_parser_message_complete(http_parser *parser);
 
 
+    // typedef
+    typedef int (*handle_cli_req) (http_channel* ch);
 private:
     struct private_data
     {
@@ -74,6 +76,8 @@ private:
         http_parser_settings _settings;
 
         http_header*    _req_header;
+        http_header*    _res_header;
+
         uint8_t         _is_complete;
         char   _req_host[URL_MAX_LEN];
         char   _req_path[URL_MAX_LEN];

@@ -8,6 +8,7 @@
 
 #include "server/http_server.h"
 #include "server/http_channel.h"
+#include "server/url_route.h"
 #include "util/logger.h"
 
 #define SERVER_TIMER_INTERVAL        (1000)
@@ -49,9 +50,8 @@ int http_server::start_server(const char *ip, uint16_t port)
         return -1;
     }
 
-
+    _pd.is_run = THREAD_PREPARE;
     uv_thread_create(&_pd._thread, __uv_thread_entry_static, this);
-    _pd.is_run = 1;
     return 0;
 }
 
@@ -131,6 +131,7 @@ int http_server::_init_uv_data()
         return -1;
     }
 
+    _pd._route = new url_route();
     return 0;
 }
 
@@ -146,8 +147,9 @@ void http_server::__uv_thread_entry_static(void *data)
 {
     http_server* pthis = (http_server*) data;
     log_d("__uv_thread_entry_static, begin");
+    pthis->_pd.is_run = THREAD_RUN;
     uv_run(pthis->_pd._loop, UV_RUN_DEFAULT);
-
+    pthis->_pd.is_run = THREAD_END;
     log_d("__uv_thread_entry_static, end");
 }
 
@@ -167,7 +169,10 @@ void http_server::_static_uv_timer_callback(uv_timer_t *handle)
 
     while (remove_q.size()) {
         http_channel* ch = *remove_q.begin();
-        pthis->_channels.erase(remove_q.begin());
+        it = std::find(pthis->_channels.begin(), pthis->_channels.end(), ch);
+        if (it != pthis->_channels.end()) {
+            pthis->_channels.erase(it);
+        }
         delete ch;
         remove_q.erase(remove_q.begin());
         log_d("remove_q, size:%zu", remove_q.size());
