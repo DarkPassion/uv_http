@@ -48,7 +48,7 @@
 
 
 #define ARRAY_SIZE(x)           ((sizeof(x)) / (sizeof(x[0])))
-#define SOCKET_TIMEOT_MS        (5000)
+#define SOCKET_TIMEOUT_MS        (5000)
 #define HTTP_CR                  '\r'
 #define HTTP_LF                  '\n'
 #define URL_MAX_LEN             (1024)

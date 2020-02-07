@@ -7,7 +7,7 @@
 #include "http/http_url.h"
 #include "http/http_request.h"
 #include "http/http_form.h"
-#include "util/write_buffer.h"
+#include "data/write_buffer.h"
 #include "server/http_server.h"
 
 #include "util/utils.h"

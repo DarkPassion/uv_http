@@ -155,10 +155,22 @@ void http_server::_static_uv_timer_callback(uv_timer_t *handle)
 {
     http_server* pthis = (http_server*) handle->data;
 
+    channel_queue remove_q;
     channel_queue::iterator  it = pthis->_channels.begin();
     for ( ; it != pthis->_channels.end(); it++) {
         http_channel* ch = *it;
-        ch->do_update();
+        int ret = ch->check_update();
+        if (ret < 0) {
+            remove_q.push_back(ch);
+        }
+    }
+
+    while (remove_q.size()) {
+        http_channel* ch = *remove_q.begin();
+        pthis->_channels.erase(remove_q.begin());
+        delete ch;
+        remove_q.erase(remove_q.begin());
+        log_d("remove_q, size:%zu", remove_q.size());
     }
 }
 

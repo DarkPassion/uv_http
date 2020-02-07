@@ -5,6 +5,8 @@
 #include <string.h>
 #include "server/http_channel.h"
 #include "http/http_header.h"
+#include "data/send_data.h"
+#include "data/error_code.h"
 #include "util/utils.h"
 #include "util/logger.h"
 
@@ -65,6 +67,7 @@ int http_channel::start_read()
         log_d("uv_read_start fail");
         return -1;
     }
+    _pd.update_ts = utils::get_timestamp();
     return 0;
 }
 
@@ -81,9 +84,13 @@ int http_channel::stop_read()
     return 0;
 }
 
-int http_channel::do_update()
+int http_channel::check_update()
 {
     uint64_t cts = utils::get_timestamp();
+    if (cts > _pd.update_ts + SOCKET_TIMEOUT_MS || !uv_is_active((uv_handle_t*) _pd._client)) {
+        return -1;
+    }
+    log_d("http_channel::do_update(), cts:%llu", cts);
     return 0;
 }
 
@@ -98,10 +105,41 @@ int http_channel::_input_parser_data(const char *data, size_t len)
 
     if (_pd._is_complete > 0) {
         // FIXME: close socket ??
-        log_d("_input_parser_data close socket");
-        stop_read();
+        int wb_data_len = 1024;
+        char* wb_data = (char*) malloc(wb_data_len);
+        memset(wb_data, 0, wb_data_len);
+
+        wb_data_len = _make_response(wb_data, wb_data_len);
+
+        send_data* __send = new send_data;
+        memset(__send, 0, sizeof(send_data));
+        __send->write.data = __send;
+        __send->data = this;
+        __send->buff_alloc = 1;
+        __send->buf.base = (char*) wb_data;
+        __send->buf.len = wb_data_len;
+
+        int ret = uv_write(&__send->write, (uv_stream_t*) _pd._client, &__send->buf, 1, _static_uv_write_callback);
+        log_d("_input_parser_data, uv_write ret:%d", ret);
     }
     return 0;
+}
+
+int http_channel::_make_response(char *data, int len)
+{
+    const char* TPL = "HTTP/1.1 200 OK\r\n"
+                      "Server: nginx\r\n"
+                      "Content-Type: text/html;charset=UTF-8\r\n"
+                      "Date: Fri, 07 Feb 2020 02:36:02 GMT\r\n"
+                      "Cache-Control: no-cache\r\n"
+                      "Connection: close\r\n"
+                      "Content-Length: 5\r\n"
+                      "\r\n"
+                      "hello";
+
+    int ns = snprintf(data, len, "%s", TPL);
+    log_d("_make_response, ns:%d data:%s", ns, data);
+    return ns;
 }
 
 // uv callback
@@ -116,6 +154,32 @@ void http_channel::_static_uv_buffer_alloc(uv_handle_t *handle, size_t size, uv_
     buf->base = (char*) malloc(size);
     buf->len = size;
 }
+
+void http_channel::_static_uv_write_callback(uv_write_t *req, int status)
+{
+    log_d("_static_uv_write_callback, status:%d", status);
+    send_data* __send = (send_data*) req->data;
+    http_channel* pthis = (http_channel*) __send->data;
+
+    send_data_destory(&__send);
+
+    if (status == UV_ECANCELED) {
+        log_t("_static_uv_write_callback has been close");
+        pthis->_pd.error_code = ERROR_SOCKET_WRITE;
+        return;
+    }
+
+    if (status < 0) {
+        log_t("_static_uv_write_callback error");
+        pthis->_pd.error_code = ERROR_SOCKET_WRITE;
+        return;
+    }
+
+    // close socket
+    uv_close((uv_handle_t*) pthis->_pd._client, _static_uv_close_callback);
+    pthis->_pd.update_ts = utils::get_timestamp();
+}
+
 
 void http_channel::_static_uv_read_callback(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf)
 {
@@ -140,6 +204,7 @@ void http_channel::_static_uv_read_callback(uv_stream_t *stream, ssize_t nread, 
     }
     FREE_BUF(buf);
 
+    pthis->_pd.update_ts = utils::get_timestamp();
 #undef FREE_BUF
 }
 

@@ -18,6 +18,8 @@ include_directories(
 
 link_directories(${SSL_DIR}/libs)
 
+add_definitions("-DDEBUG -D_DEBUG")
+
 set(uv_dir deps/libuv/src)
 set(uv_sources
         ${uv_dir}/fs-poll.c
@@ -78,6 +80,7 @@ file(GLOB CPP_SRC
         src/http/*.cpp src/http/*.cc
         src/client/*.cpp src/client/*.cc
         src/server/*.cpp src/server/*.cc
+        src/data/*.cpp src/data/*.cc
         src/test/*.cpp src/test/*.cc)
 
 

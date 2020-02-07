@@ -47,7 +47,8 @@ int http_header::append_data(const char *data, int len)
         int ret = _expand_size(new_size);
         log_t("_expand_size ret:%d", ret);
     }
-    assert(headers_pos < headers_len);
+
+    M_ASSERT(headers_pos < headers_len, "add data fail");
     int nc = len > kMaxLen ? kMaxLen : len;
 
     if (state == kIndexName) {
@@ -62,6 +63,25 @@ int http_header::append_data(const char *data, int len)
         headers_pos++;
         log_d("append_data value:%s, len:%d headers_pos:%d", headers[headers_pos-1]->value, len, headers_pos);
     }
+    return 0;
+}
+
+
+int http_header::add_data(const char *key, const char *val)
+{
+    if (headers_pos + 1 > headers_len) {
+        int new_size = headers_len * 2;
+        int ret = _expand_size(new_size);
+        log_t("_expand_size ret:%d", ret);
+    }
+
+    M_ASSERT(headers_pos < headers_len, "add data fail");
+
+    snprintf(headers[headers_pos]->name, ARRAY_SIZE(headers[headers_pos]->name), "%s", key);
+    snprintf(headers[headers_pos]->value, ARRAY_SIZE(headers[headers_pos]->value), "%s", val);
+    headers_pos++;
+
+    log_d("add_data pos:%d key:%s val:%s", headers_pos, key, val);
     return 0;
 }
 

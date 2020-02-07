@@ -34,19 +34,22 @@ public:
 
     int stop_read();
 
-    int do_update();
+    int check_update();
 
     uv_tcp_t* get_client();
 
 private:
     int _input_parser_data(const char* data, size_t len);
 
+    int _make_response(char* data, int len);
 private:
     static void _static_uv_close_callback(uv_handle_t* handle);
 
     static void _static_uv_buffer_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf);
 
     static void _static_uv_read_callback(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
+
+    static void _static_uv_write_callback(uv_write_t* req, int status);
 
     static int _static_parser_header_data(http_parser *parser, const char *at, size_t length);
 
@@ -74,6 +77,8 @@ private:
         uint8_t         _is_complete;
         char   _req_host[URL_MAX_LEN];
         char   _req_path[URL_MAX_LEN];
+
+        uint16_t error_code;
     };
 
 private:

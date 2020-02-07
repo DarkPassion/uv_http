@@ -18,7 +18,9 @@
 #include "http/http_header.h"
 #include "http/http_chunk.h"
 #include "util/logger.h"
-#include "util/write_buffer.h"
+#include "data/write_buffer.h"
+#include "data/error_code.h"
+#include "data/send_data.h"
 
 NS_CC_BEGIN
 
@@ -306,7 +308,7 @@ int http_request::_connect_to_server(const char *host, int16_t port)
         uv_timer_stop(_pd._timer);
     }
 
-    ret = uv_timer_start(_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOT_MS, 0);
+    ret = uv_timer_start(_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOUT_MS, 0);
     if (ret != 0) {
         log_t("_connect_to_server uv_timer_start failed");
     }
@@ -527,7 +529,7 @@ int http_request::_ssl_trans_flush_read_bio()
             uv_timer_stop(_pd._timer);
         }
 
-        ret = uv_timer_start(_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOT_MS, 0);
+        ret = uv_timer_start(_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOUT_MS, 0);
         if (ret != 0) {
             log_t("_static_uv_connect_cb uv_timer_start failed");
         }
@@ -882,7 +884,7 @@ void http_request::_static_uv_connect_cb(uv_connect_t *req, int status)
         uv_timer_stop(pthis->_pd._timer);
     }
 
-    ret = uv_timer_start(pthis->_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOT_MS, 0);
+    ret = uv_timer_start(pthis->_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOUT_MS, 0);
     if (ret != 0) {
         log_t("_static_uv_connect_cb uv_timer_start failed");
     }
@@ -898,7 +900,7 @@ void http_request::_static_uv_write_cb(uv_write_t *req, int status)
         int ret = pthis->_pd._trans->wb->free_buffer((uint8_t*) __send->buf.base);
         log_d("_static_uv_write_cb free_buffer ret:%d", ret);
     }
-    delete __send;
+    send_data_destory(&__send);
 
     if (status == UV_ECANCELED) {
         log_t("_static_uv_write_cb has been close");
@@ -961,7 +963,7 @@ void http_request::_static_uv_read_cb(uv_stream_t* stream, ssize_t nread, const 
         uv_timer_stop(pthis->_pd._timer);
     }
 
-    ret = uv_timer_start(pthis->_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOT_MS, 0);
+    ret = uv_timer_start(pthis->_pd._timer, _static_uv_socket_timer_cb, SOCKET_TIMEOUT_MS, 0);
     if (ret != 0) {
         log_t("_static_uv_read_cb uv_timer_start failed");
     }

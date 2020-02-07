@@ -58,15 +58,6 @@ public:
 
     int set_notify_callback(void(*cb)(int type, const char* buf, size_t len, void* data), void* user);
 
-    enum error_code {
-        ERROR_SUCC = 0,
-        ERROR_DNS_RESOLVE = 1,
-        ERROR_CONNECT = 2,
-        ERROR_SOCKET_READ = 3,
-        ERROR_SOCKET_WRITE = 4,
-        ERROR_TIMEOUT = 5,
-        ERROR_INTERNAL = 6,
-    };
 
     enum notify_code {
         NOTIFY_CONNECT_IP = 1,
@@ -90,13 +81,6 @@ private:
         BIO*        write_bio;
         write_buffer*   wb;
         uint8_t     send_req;
-    };
-
-    struct send_data
-    {
-        uv_write_t  write;
-        uv_buf_t    buf;
-        void*       data;
     };
 
 
