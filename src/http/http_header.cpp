@@ -164,5 +164,22 @@ void http_header::dump()
 }
 
 
+int http_header::write_to_buff(char *buf, int len)
+{
+    int ret = 0;
+    int pos = 0;
+    for (int i = 0; i < headers_pos; i++) {
+        if (pos >= len) {
+            log_t("write_to_buff, len < pos");
+            ret = -1;
+            break;
+        }
+        int ns = snprintf(buf + pos, len - pos, "%s: %s\r\n", headers[i]->name, headers[i]->value);
+        pos += ns;
+    }
+
+    return ret == 0 ? pos : ret;
+}
+
 NS_CC_END
 

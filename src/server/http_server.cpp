@@ -8,7 +8,8 @@
 
 #include "server/http_server.h"
 #include "server/http_channel.h"
-#include "server/url_route.h"
+#include "server/http_message.h"
+#include "server/http_route.h"
 #include "util/logger.h"
 
 #define SERVER_TIMER_INTERVAL        (1000)
@@ -19,6 +20,7 @@ http_server::http_server()
 {
     memset(&_pd, 0, sizeof(private_data));
     _channels.clear();
+    _route = new http_route();
     log_d("http_server ctor");
 }
 
@@ -55,7 +57,11 @@ int http_server::start_server(const char *ip, uint16_t port)
     return 0;
 }
 
-
+int http_server::add_handler(const char* path, int(*cb) (http_message* msg, http_channel* channel, void* user), void* user)
+{
+    _route->add_handler(path, cb, user);
+    return 0;
+}
 
 int http_server::_init_private_data()
 {
@@ -131,7 +137,6 @@ int http_server::_init_uv_data()
         return -1;
     }
 
-    _pd._route = new url_route();
     return 0;
 }
 
@@ -189,7 +194,7 @@ void http_server::_static_uv_connection_callback(uv_stream_t *server, int status
     }
 
     http_channel* ch = new http_channel(pthis->_pd._loop);
-
+    ch->set_make_response_handler(http_route::__static_route_index, pthis->_route);
     int ret = uv_accept(server, (uv_stream_t*) ch->get_client());
     if (ret != 0) {
         delete ch;

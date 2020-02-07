@@ -23,7 +23,8 @@ extern "C" {
 NS_CC_BEGIN
 
 class http_channel;
-class url_route;
+class http_message;
+class http_route;
 class http_server {
 
 public:
@@ -32,6 +33,8 @@ public:
     ~http_server();
 
     int start_server(const char* ip, uint16_t port);
+
+    int add_handler(const char* path, int(*cb) (http_message* msg, http_channel* channel, void* user), void* user);
 
 private:
     int _init_private_data();
@@ -66,13 +69,14 @@ private:
         char bind_ip[64];
         uint16_t bind_port;
         uint8_t is_run;
-        url_route* _route;
     };
 
     typedef std::vector<http_channel*> channel_queue;
 private:
     private_data    _pd;
     channel_queue   _channels;
+    http_route*      _route;
+
 };
 
 NS_CC_END

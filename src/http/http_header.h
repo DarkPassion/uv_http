@@ -17,6 +17,7 @@ public:
 
     ~http_header();
 
+    // request
     int add_data(const char* key, const char* val);
 
     // response
@@ -29,6 +30,8 @@ public:
     bool is_chunked_encode();
 
     void dump();
+
+    int write_to_buff(char* buf, int len);
 
 private:
     int _expand_size(int size);

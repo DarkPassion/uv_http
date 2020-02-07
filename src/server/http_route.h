@@ -2,8 +2,8 @@
 // Created by zhifan zhang on 2020/2/3.
 //
 
-#ifndef UV_HTTP_URL_ROUTE_H
-#define UV_HTTP_URL_ROUTE_H
+#ifndef UV_HTTP_HTTP_ROUTE_H
+#define UV_HTTP_HTTP_ROUTE_H
 
 #include <vector>
 
@@ -13,19 +13,23 @@ NS_CC_BEGIN
 
 class http_message;
 class http_channel;
+class http_server;
 
-
-class url_route {
+class http_route {
 public:
-    url_route();
+    http_route();
 
-    ~url_route();
+    ~http_route();
 
     int add_handler(const char* path, int(*cb)(http_message* msg, http_channel* channel, void* user), void* user);
 
     int remove_handle(const char* path);
 
     int do_route(const char* path, http_message* msg, http_channel* channel);
+
+    friend class http_server;
+private:
+    static int __static_route_index(http_message*, http_channel*, void* user);
 
 
 private:
@@ -44,4 +48,4 @@ private:
 
 NS_CC_END
 
-#endif //UV_HTTP_URL_ROUTE_H
+#endif //UV_HTTP_HTTP_ROUTE_H

@@ -2,8 +2,8 @@
 // Created by zhifan zhang on 2020/2/7.
 //
 
-#ifndef UV_HTTP_SEND_DATA_H
-#define UV_HTTP_SEND_DATA_H
+#ifndef UV_HTTP_STRUCT_DATA_H
+#define UV_HTTP_STRUCT_DATA_H
 
 
 #ifdef __cplusplus
@@ -33,9 +33,12 @@ struct send_data {
 void send_data_destory(send_data** s);
 
 
+const char* http_status_code_msg(int code);
+
+
 
 
 NS_CC_END
 
 
-#endif //UV_HTTP_SEND_DATA_H
+#endif //UV_HTTP_STRUCT_DATA_H

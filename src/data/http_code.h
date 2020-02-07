@@ -2,8 +2,8 @@
 // Created by zhifan zhang on 2020/2/7.
 //
 
-#ifndef UV_HTTP_ERROR_CODE_H
-#define UV_HTTP_ERROR_CODE_H
+#ifndef UV_HTTP_HTTP_CODE_H
+#define UV_HTTP_HTTP_CODE_H
 
 #include "util/define.h"
 
@@ -21,4 +21,4 @@ NS_CC_BEGIN
 
 NS_CC_END
 
-#endif //UV_HTTP_ERROR_CODE_H
+#endif //UV_HTTP_HTTP_CODE_H

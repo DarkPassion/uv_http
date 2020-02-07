@@ -23,6 +23,7 @@ extern "C" {
 NS_CC_BEGIN
 
 class http_header;
+class http_message;
 class http_channel {
 
 public:
@@ -34,10 +35,15 @@ public:
 
     int stop_read();
 
+    int write_buff(const char* buf, int len);
+
     int check_update();
 
     uv_tcp_t* get_client();
 
+    int set_make_response_handler(int(*cb)(http_message*, http_channel*, void* user), void* user);
+
+    friend class http_message;
 private:
     int _input_parser_data(const char* data, size_t len);
 
@@ -63,8 +69,16 @@ private:
 
 
     // typedef
-    typedef int (*handle_cli_req) (http_channel* ch);
+    typedef int (*make_response_handler) (http_message* msg, http_channel* ch, void* user);
+
 private:
+    struct handler
+    {
+        make_response_handler make_response;
+        void* make_response_user;
+    };
+
+
     struct private_data
     {
         uv_loop_t*  _loop;
@@ -75,14 +89,15 @@ private:
         http_parser*        _paser;
         http_parser_settings _settings;
 
-        http_header*    _req_header;
-        http_header*    _res_header;
+        http_message*   _msg;
 
         uint8_t         _is_complete;
         char   _req_host[URL_MAX_LEN];
         char   _req_path[URL_MAX_LEN];
 
+
         uint16_t error_code;
+        handler _handler;
     };
 
 private:

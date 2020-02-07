@@ -2,8 +2,8 @@
 // Created by zhifan zhang on 2020/1/31.
 //
 
-#ifndef UV_HTTP_WRITE_BUFFER_H
-#define UV_HTTP_WRITE_BUFFER_H
+#ifndef UV_HTTP_BUFFER_CACHE_H
+#define UV_HTTP_BUFFER_CACHE_H
 
 
 #include <string>
@@ -13,12 +13,12 @@
 
 NS_CC_BEGIN
 
-class write_buffer {
+class buffer_cache {
 
 public:
-    write_buffer();
+    buffer_cache();
 
-    ~write_buffer();
+    ~buffer_cache();
 
 
     int malloc_buffer(uint8_t** data, uint32_t& len);
@@ -45,4 +45,4 @@ private:
 
 NS_CC_END
 
-#endif //UV_HTTP_WRITE_BUFFER_H
+#endif //UV_HTTP_BUFFER_CACHE_H

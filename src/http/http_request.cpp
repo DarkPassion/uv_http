@@ -18,9 +18,9 @@
 #include "http/http_header.h"
 #include "http/http_chunk.h"
 #include "util/logger.h"
-#include "data/write_buffer.h"
-#include "data/error_code.h"
-#include "data/send_data.h"
+#include "data/buffer_cache.h"
+#include "data/http_code.h"
+#include "data/struct_data.h"
 
 NS_CC_BEGIN
 
@@ -75,7 +75,7 @@ retry:
     // 3. run loop
     uv_update_time(_pd._loop);
     uv_run(_pd._loop, UV_RUN_DEFAULT);
-    log_t("uv_run end, error_code:%hu", _pd.error_code);
+    log_t("uv_run end, http_code:%hu", _pd.error_code);
 
     if (_try_follow_location() > 0) {
         goto retry;
@@ -412,7 +412,7 @@ int http_request::_init_ssl_trans()
     _pd._trans->ssl = SSL_new(_pd._trans->ctx);
     _pd._trans->read_bio = BIO_new(BIO_s_mem());
     _pd._trans->write_bio = BIO_new(BIO_s_mem());
-    _pd._trans->wb = new write_buffer();
+    _pd._trans->wb = new buffer_cache();
 
     SSL_set_bio(_pd._trans->ssl, _pd._trans->read_bio, _pd._trans->write_bio);
 

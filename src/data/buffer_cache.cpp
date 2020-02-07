@@ -2,7 +2,7 @@
 // Created by zhifan zhang on 2020/1/31.
 //
 
-#include "write_buffer.h"
+#include "buffer_cache.h"
 #include "util/utils.h"
 #include "util/logger.h"
 
@@ -12,7 +12,7 @@ NS_CC_BEGIN
 #define DEFAULT_NUM             (3)
 #define DEFAULT_BUFF_LEN        (1024*4)
 
-write_buffer::write_buffer()
+buffer_cache::buffer_cache()
 {
     for (int i = 0; i < DEFAULT_NUM; i++) {
         private_data* pd = new private_data();
@@ -27,7 +27,7 @@ write_buffer::write_buffer()
 }
 
 
-write_buffer::~write_buffer()
+buffer_cache::~buffer_cache()
 {
     M_ASSERT(_used_num == 0, "_used_num should eq 0");
 
@@ -38,11 +38,11 @@ write_buffer::~write_buffer()
     }
 
     _queue.clear();
-    log_d("write_buffer dctor");
+    log_d("buffer_cache dctor");
 }
 
 
-int write_buffer::malloc_buffer(uint8_t **data, uint32_t &len)
+int buffer_cache::malloc_buffer(uint8_t **data, uint32_t &len)
 {
     if (data == NULL) {
         log_t("malloc_buffer data = null");
@@ -78,7 +78,7 @@ int write_buffer::malloc_buffer(uint8_t **data, uint32_t &len)
     return ret;
 }
 
-int write_buffer::free_buffer(uint8_t *data)
+int buffer_cache::free_buffer(uint8_t *data)
 {
     int ret = -1;
     for (size_t i = 0; i < _queue.size(); ++i) {

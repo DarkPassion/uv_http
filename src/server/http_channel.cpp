@@ -4,9 +4,11 @@
 
 #include <string.h>
 #include "server/http_channel.h"
+#include "server/http_message.h"
 #include "http/http_header.h"
-#include "data/send_data.h"
-#include "data/error_code.h"
+#include "http/http_url.h"
+#include "data/struct_data.h"
+#include "data/http_code.h"
 #include "util/utils.h"
 #include "util/logger.h"
 
@@ -38,8 +40,7 @@ http_channel::http_channel(uv_loop_t* loop)
     _pd._settings.on_headers_complete = &http_channel::_static_parser_header_complete;
     _pd._settings.on_message_complete = &http_channel::_static_parser_message_complete;
 
-    _pd._req_header = new http_header();
-    _pd._res_header = new http_header();
+    _pd._msg = new http_message();
 
     memset(_pd._req_path, 0, ARRAY_SIZE(_pd._req_path));
     memset(_pd._req_host, 0, ARRAY_SIZE(_pd._req_host));
@@ -53,14 +54,9 @@ http_channel::~http_channel()
         uv_close((uv_handle_t*) _pd._client, _static_uv_close_callback);
     }
 
-    if (_pd._req_header) {
-        delete _pd._req_header;
-        _pd._req_header = NULL;
-    }
-
-    if (_pd._res_header) {
-        delete _pd._res_header;
-        _pd._res_header = NULL;
+    if (_pd._msg) {
+        delete _pd._msg;
+        _pd._msg = NULL;
     }
 
     if (_pd._paser) {
@@ -74,6 +70,14 @@ http_channel::~http_channel()
 uv_tcp_t* http_channel::get_client()
 {
     return _pd._client;
+}
+
+int http_channel::set_make_response_handler(int (*cb)(http_message *, http_channel *, void *), void *user)
+{
+    log_d("set_make_response_handler, cb:%p", cb);
+    _pd._handler.make_response = cb;
+    _pd._handler.make_response_user = user;
+    return 0;
 }
 
 int http_channel::start_read()
@@ -100,6 +104,21 @@ int http_channel::stop_read()
     return 0;
 }
 
+int http_channel::write_buff(const char *buf, int len)
+{
+    send_data* __send = new send_data;
+    memset(__send, 0, sizeof(send_data));
+    __send->write.data = __send;
+    __send->data = this;
+    __send->buf.base = (char*) buf;
+    __send->buf.len = len;
+
+    int ret = uv_write(&__send->write, (uv_stream_t*) _pd._client, &__send->buf, 1, _static_uv_write_callback);
+    log_d("_input_parser_data, uv_write ret:%d", ret);
+    return 0;
+}
+
+
 int http_channel::check_update()
 {
     uint64_t cts = utils::get_timestamp();
@@ -118,25 +137,20 @@ int http_channel::_input_parser_data(const char *data, size_t len)
         return -1;
     }
 
+    if (_pd._handler.make_response == NULL) {
+        log_d("_handler.make_response = null");
+        return -1;
+    }
 
     if (_pd._is_complete > 0) {
-        // FIXME: close socket ??
-        int wb_data_len = 1024;
-        char* wb_data = (char*) malloc(wb_data_len);
-        memset(wb_data, 0, wb_data_len);
-
-        wb_data_len = _make_response(wb_data, wb_data_len);
-
-        send_data* __send = new send_data;
-        memset(__send, 0, sizeof(send_data));
-        __send->write.data = __send;
-        __send->data = this;
-        __send->buff_alloc = 1;
-        __send->buf.base = (char*) wb_data;
-        __send->buf.len = wb_data_len;
-
-        int ret = uv_write(&__send->write, (uv_stream_t*) _pd._client, &__send->buf, 1, _static_uv_write_callback);
-        log_d("_input_parser_data, uv_write ret:%d", ret);
+        std::string url;
+        url.append("http://");
+        url.append(_pd._req_host);
+        url.append(_pd._req_path);
+        log_d("make_response, url:%s", url.c_str());
+        _pd._msg->get_url()->reset_url(url.c_str());
+        int ret = _pd._handler.make_response(_pd._msg, this, _pd._handler.make_response_user);
+        log_d("_handler.make_response, ret:%d", ret);
     }
     return 0;
 }
@@ -291,7 +305,7 @@ int http_channel::_static_parser_header_data(http_parser *parser, const char *at
 {
     http_channel* pthis = (http_channel*) parser->data;
 
-    pthis->_pd._req_header->append_data(at, length);
+    pthis->_pd._msg->get_request_http_header()->append_data(at, length);
     return 0;
 }
 
@@ -319,7 +333,7 @@ int http_channel::_static_parser_header_complete(http_parser *parser)
     http_channel* pthis = (http_channel*) parser->data;
 
     // get host
-    std::string host = pthis->_pd._req_header->get_value_by_key("Host");
+    std::string host = pthis->_pd._msg->get_request_http_header()->get_value_by_key("Host");
     if (host.size() > 0) {
         snprintf(pthis->_pd._req_host, ARRAY_SIZE(pthis->_pd._req_host), "%s", host.c_str());
         log_d("_static_parser_header_complete, host:%s", pthis->_pd._req_host);

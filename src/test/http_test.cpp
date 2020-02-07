@@ -7,7 +7,8 @@
 #include "http/http_url.h"
 #include "http/http_request.h"
 #include "http/http_form.h"
-#include "data/write_buffer.h"
+#include "data/buffer_cache.h"
+#include "data/struct_data.h"
 #include "server/http_server.h"
 
 #include "util/utils.h"
@@ -146,7 +147,7 @@ void http_test::__test_http_request()
             int ret = req->do_work();
             http_request::http_result result;
             req->get_result(&result);
-            log_d("req->do_work, ret = %d, result.res:%s, result.status_code:%d, result.error_code:%hu, result.connect_ip:%s",
+            log_d("req->do_work, ret = %d, result.res:%s, result.status_code:%d, result.http_code:%hu, result.connect_ip:%s",
                   ret, result.content.c_str(), result.status_code, result.error_code, result.connect_ip);
             delete req;
         }
@@ -172,7 +173,7 @@ void http_test::__test_http_request()
         int ret = req->do_work();
         http_request::http_result result;
         req->get_result(&result);
-        log_d("req->do_work, ret = %d, result.res:%s, result.status_code:%d, result.error_code:%hu, result.connect_ip:%s",
+        log_d("req->do_work, ret = %d, result.res:%s, result.status_code:%d, result.http_code:%hu, result.connect_ip:%s",
                 ret, result.content.c_str(), result.status_code, result.error_code, result.connect_ip);
         delete req;
     }
@@ -469,7 +470,7 @@ void http_test::__test_openssl() {
 void http_test::__test_write_buffer()
 {
     {
-        write_buffer* wb = new write_buffer();
+        buffer_cache* wb = new buffer_cache();
 
         uint32_t len[32] = {0};
         uint8_t* mc[32] = {NULL};

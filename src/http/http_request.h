@@ -33,7 +33,7 @@ NS_CC_BEGIN
 class http_url;
 class http_header;
 class http_chunk;
-class write_buffer;
+class buffer_cache;
 class http_request {
 public:
     struct http_result;
@@ -79,7 +79,7 @@ private:
         SSL*        ssl;
         BIO*        read_bio;
         BIO*        write_bio;
-        write_buffer*   wb;
+        buffer_cache*   wb;
         uint8_t     send_req;
     };
 
