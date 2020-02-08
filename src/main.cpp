@@ -6,7 +6,6 @@
 #include "util/logger.h"
 #include "test/http_test.h"
 
-#define TEST_SELF
 USING_NS_CC;
 
 
@@ -17,7 +16,6 @@ int main(int argc, char** argv)
     http_test ht;
     ht.run_test();
 #endif
-
     return 0;
 }
 

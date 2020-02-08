@@ -18,7 +18,9 @@ include_directories(
 
 link_directories(${SSL_DIR}/libs)
 
-add_definitions("-DDEBUG -D_DEBUG")
+add_definitions("-DDEBUG -D_DEBUG -DTEST_SELF -O0")
+#add_definitions("-DNDEBUG -D_NDEBUG -O3")
+
 
 set(uv_dir deps/libuv/src)
 set(uv_sources
