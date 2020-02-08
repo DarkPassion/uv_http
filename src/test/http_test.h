@@ -9,6 +9,9 @@
 
 NS_CC_BEGIN
 
+class http_message;
+class http_channel;
+
 class http_test {
 
 public:
@@ -46,6 +49,8 @@ private:
 
 private:
     static void __http_request_notify_callback(int type, const char* buf, size_t len, void* data);
+
+    static int __http_server_handler_service(http_message* msg, http_channel* channel, void* user);
 
 };
 

@@ -34,7 +34,11 @@ public:
     int write_to_buff(char* buf, int len);
 
 private:
+    struct hd_data_t;
+
     int _expand_size(int size);
+
+    hd_data_t* _find_node(const char* key);
 
     enum {
         kMaxLen = 256,

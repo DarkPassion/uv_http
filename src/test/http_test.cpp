@@ -10,6 +10,8 @@
 #include "data/buffer_cache.h"
 #include "data/struct_data.h"
 #include "server/http_server.h"
+#include "server/http_message.h"
+#include "server/http_channel.h"
 
 #include "util/utils.h"
 #include "util/logger.h"
@@ -495,8 +497,8 @@ void http_test::__test_http_server()
 
     http_server* server = new http_server();
 
+    server->add_handler("/service", __http_server_handler_service, this);
     int ret = server->start_server("127.0.0.1", 8080);
-
     log_d("start_server, ret:%d", ret);
 
     while (1) {
@@ -505,6 +507,37 @@ void http_test::__test_http_server()
 
 }
 
+int http_test::__http_server_handler_service(uv_http::http_message *msg, uv_http::http_channel *channel, void *user)
+{
+    char buf[1024] = {0};
+    int np = 0;
+    int ns = 0;
+
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " host:%s\r\n", msg->get_url()->get_host().c_str());
+    np += ns;
+
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " port:%s\r\n", msg->get_url()->get_port().c_str());
+    np += ns;
+
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " path:%s\r\n", msg->get_url()->get_path().c_str());
+    np += ns;
+
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " query:%s\r\n", msg->get_url()->get_query().c_str());
+    np += ns;
+
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " host:%s\r\n", msg->get_url()->get_host().c_str());
+    np += ns;
+
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " url:%s\r\n", msg->get_url()->get_full_url().c_str());
+    np += ns;
+
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " User-Agent :%s\r\n", msg->get_request_http_header()->get_value_by_key("User-Agent").c_str());
+    np += ns;
+
+    ns = msg->make_simple_response(channel, 200, buf, np);
+    log_d("__http_server_handler_service, ns:%d", ns);
+    return 0;
+}
 
 
 

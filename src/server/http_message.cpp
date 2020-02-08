@@ -14,6 +14,8 @@ NS_CC_BEGIN
 
 #define DEFAULT_BUFF_LEN        (1024*4)
 #define HEADER_MAX_LEN          (128)
+#define HTTP_404_TPL            "\r\n\r\n \t404 Not Found"
+#define HTTP_500_TPL            "\r\n\r\n \tInternal Server Error"
 
 http_message::http_message()
 {
@@ -99,11 +101,22 @@ int http_message::make_simple_response(http_channel* ch, int status, const char*
 
     _res_data->pos += len;
 
-    nw = ch->write_buff(_res_data->data, _res_data->pos);
+    nw = ch->write_buff(_res_data->data, _res_data->pos, 1);
     log_d("write_buff, nw:%d", nw);
     return 0;
 }
 
+int http_message::make_simple_404(http_channel *ch)
+{
+    make_simple_response(ch, 404, HTTP_404_TPL, strlen(HTTP_404_TPL));
+    return 0;
+}
+
+int http_message::make_simple_500(http_channel *ch)
+{
+    make_simple_response(ch, 500, HTTP_500_TPL, strlen(HTTP_500_TPL));
+    return 0;
+}
 
 int http_message::_make_simple_response_header()
 {

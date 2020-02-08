@@ -58,6 +58,7 @@
 #define HTTP_HEADER_TRANSFER_CHUNKED       "chunked"
 #define HTTP_HEADER_LOCATION                "Location"
 #define HTTP_HEADER_CONTENT_LENGTH          "Content-Length"
+#define HTTP_HEADER_USER_AGENT              "User-Agent"
 
 
 #if (defined (_DEBUG) || defined(DEBUG))

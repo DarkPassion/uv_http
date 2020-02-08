@@ -35,7 +35,7 @@ public:
 
     int stop_read();
 
-    int write_buff(const char* buf, int len);
+    int write_buff(const char* buf, int len, uint8_t end);
 
     int check_update();
 
@@ -92,6 +92,7 @@ private:
         http_message*   _msg;
 
         uint8_t         _is_complete;
+        uint8_t         _is_write_end;
         char   _req_host[URL_MAX_LEN];
         char   _req_path[URL_MAX_LEN];
 

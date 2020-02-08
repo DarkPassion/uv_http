@@ -28,6 +28,10 @@ public:
 
     int make_simple_response(http_channel* ch, int status, const char* msg, int len);
 
+    int make_simple_404(http_channel* ch);
+
+    int make_simple_500(http_channel* ch);
+
 private:
     int _make_simple_response_header();
 

@@ -77,9 +77,14 @@ int http_header::add_data(const char *key, const char *val)
 
     M_ASSERT(headers_pos < headers_len, "add data fail");
 
-    snprintf(headers[headers_pos]->name, ARRAY_SIZE(headers[headers_pos]->name), "%s", key);
-    snprintf(headers[headers_pos]->value, ARRAY_SIZE(headers[headers_pos]->value), "%s", val);
-    headers_pos++;
+    http_header::hd_data_t* node = _find_node(key);
+    if (node == NULL) {
+        snprintf(headers[headers_pos]->name, ARRAY_SIZE(headers[headers_pos]->name), "%s", key);
+        snprintf(headers[headers_pos]->value, ARRAY_SIZE(headers[headers_pos]->value), "%s", val);
+        headers_pos++;
+    } else {
+        snprintf(node->value, ARRAY_SIZE(node->value), "%s", val);
+    }
 
     log_d("add_data pos:%d key:%s val:%s", headers_pos, key, val);
     return 0;
@@ -146,10 +151,20 @@ int http_header::_expand_size(int size)
     }
 
     headers_len = size;
-
-
-
     return 0;
+}
+
+http_header::hd_data_t* http_header::_find_node(const char *key)
+{
+    http_header::hd_data_t* node = NULL;
+    for (int i = 0; i < headers_pos; i++) {
+        if (headers[i] && strcmp(key, headers[i]->name) == 0) {
+            node = headers[i];
+            break;
+        }
+    }
+
+    return node;
 }
 
 void http_header::dump()

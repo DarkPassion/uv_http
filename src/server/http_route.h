@@ -31,7 +31,6 @@ public:
 private:
     static int __static_route_index(http_message*, http_channel*, void* user);
 
-
 private:
     typedef int(* handle_func) (http_message* msg, http_channel* channel, void* user);
 

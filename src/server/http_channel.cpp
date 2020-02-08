@@ -50,8 +50,9 @@ http_channel::http_channel(uv_loop_t* loop)
 
 http_channel::~http_channel()
 {
-    if (uv_is_active((uv_handle_t*) _pd._client)) {
+    if (_pd._client && uv_is_active((uv_handle_t*) _pd._client)) {
         uv_close((uv_handle_t*) _pd._client, _static_uv_close_callback);
+        log_d("http_channel dctor close socket");
     }
 
     if (_pd._msg) {
@@ -104,8 +105,15 @@ int http_channel::stop_read()
     return 0;
 }
 
-int http_channel::write_buff(const char *buf, int len)
+int http_channel::write_buff(const char *buf, int len, uint8_t end)
 {
+    if (!uv_is_active((uv_handle_t*) _pd._client)) {
+        log_d("write_buff, uv_is_active false");
+        return -1;
+    }
+
+    _pd._is_write_end = end;
+
     send_data* __send = new send_data;
     memset(__send, 0, sizeof(send_data));
     __send->write.data = __send;
@@ -122,7 +130,7 @@ int http_channel::write_buff(const char *buf, int len)
 int http_channel::check_update()
 {
     uint64_t cts = utils::get_timestamp();
-    if (cts > _pd.update_ts + SOCKET_TIMEOUT_MS || !uv_is_active((uv_handle_t*) _pd._client)) {
+    if (cts > _pd.update_ts + SOCKET_TIMEOUT_MS || _pd._client == NULL || !uv_is_active((uv_handle_t*) _pd._client)) {
         return -1;
     }
     log_d("http_channel::do_update(), cts:%llu", cts);
@@ -237,7 +245,12 @@ int http_channel::_make_response(char *data, int len)
 // uv callback
 void http_channel::_static_uv_close_callback(uv_handle_t* handle)
 {
-    free(handle);
+    http_channel* pthis = (http_channel*) handle->data;
+    if (pthis->_pd._client == (uv_tcp_t*) handle) {
+        log_d("_static_uv_close_callback, handle:%p", handle);
+        free(handle);
+        pthis->_pd._client = NULL;
+    }
 }
 
 void http_channel::_static_uv_buffer_alloc(uv_handle_t *handle, size_t size, uv_buf_t *buf)
@@ -267,9 +280,13 @@ void http_channel::_static_uv_write_callback(uv_write_t *req, int status)
         return;
     }
 
-    // close socket
-    uv_close((uv_handle_t*) pthis->_pd._client, _static_uv_close_callback);
     pthis->_pd.update_ts = utils::get_timestamp();
+
+    if (pthis->_pd._is_write_end) {
+        // close socket
+        uv_close((uv_handle_t*) pthis->_pd._client, _static_uv_close_callback);
+        log_d("_static_uv_write_callback, close socket");
+    }
 }
 
 

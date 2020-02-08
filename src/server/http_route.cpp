@@ -7,6 +7,7 @@
 #include "server/http_channel.h"
 #include "http/http_url.h"
 
+#include "util/utils.h"
 #include "util/logger.h"
 
 NS_CC_BEGIN
@@ -51,7 +52,7 @@ int http_route::add_handler(const char *path, int (*cb)(http_message *, http_cha
         data->func = cb;
         data->user = user;
         is_add = 1;
-
+        _queue.push_back(data);
         log_d("add_handler new, cb:%p, path:%s", cb, path);
     }
 
@@ -85,7 +86,18 @@ int http_route::remove_handle(const char *path)
 
 int http_route::do_route(const char *path, http_message *msg, http_channel *channel)
 {
-    return 0;
+    uint8_t is_find = 0;
+    std::vector<route_data*>::iterator it = _queue.begin();
+    for (; it != _queue.end(); it++) {
+        route_data* data = *it;
+        if (data && utils::string_start_with(path, data->path)) {
+            int ret = data->func(msg, channel, data->user);
+            is_find = 1;
+            log_d("do_route, data->func:%p, ret:%d ", data->func, ret);
+            break;
+        }
+    }
+    return is_find == 0 ? -1 : 0;
 }
 
 
@@ -100,12 +112,16 @@ int http_route::__static_route_index(uv_http::http_message* msg, uv_http::http_c
     }
 
     if (pthis->_queue.size() == 0) {
-        msg->make_simple_response(ch, 200, "hello", 5);
+        msg->make_simple_404(ch);
         return 0;
     }
 
     std::string path = msg->get_url()->get_path();
-    return pthis->do_route(path.c_str(), msg, ch);
+    int ret = pthis->do_route(path.c_str(), msg, ch);
+    if (ret < 0) {
+        msg->make_simple_404(ch);
+    }
+    return 0;
 }
 
 
