@@ -7,8 +7,8 @@
 #include "http/http_header.h"
 #include "http/http_url.h"
 #include "data/struct_data.h"
+#include "util/utils.h"
 #include "util/logger.h"
-
 
 NS_CC_BEGIN
 
@@ -75,18 +75,19 @@ http_url * http_message::get_url()
     return _url;
 }
 
-
-int http_message::make_simple_response(http_channel* ch, int status, const char* msg, int len)
+int http_message::make_file_response(http_channel *ch, const char *path)
 {
-    log_d("make_simple_response, status:%d, msg:%s, len:%d", status, msg, len);
+    log_d("make_file_response, path:%s", path);
+
+    int ns = 0;
     _res_data->pos = 0;
-    int ns = snprintf(_res_data->data, _res_data->len, "HTTP/1.1 %d %s\r\n", status, http_status_code_msg(status));
+
+    ns = snprintf(_res_data->data, _res_data->len, "HTTP/1.1 %d %s\r\n", HTTP_STATUS_OK, http_status_code_msg(HTTP_STATUS_OK));
     _res_data->pos += ns;
 
-    char lbuf[32] = {0};
-    snprintf(lbuf, ARRAY_SIZE(lbuf), "%d", len);
-    _res_header->add_data(HTTP_HEADER_CONTENT_LENGTH, lbuf);
+    _res_header->add_data(HTTP_HEADER_TRANSFER_ENCODEING, HTTP_HEADER_TRANSFER_CHUNKED);
     _make_simple_response_header();
+    _res_header->add_data(HTTP_HEADER_CONTENT_TYPE, http_content_type("JSON"));
 
     int nw = _res_header->write_to_buff(_res_data->data + _res_data->pos, _res_data->len - _res_data->pos);
     if (nw < 0) {
@@ -97,9 +98,78 @@ int http_message::make_simple_response(http_channel* ch, int status, const char*
 
     _res_data->data[_res_data->pos++] = HTTP_CR;
     _res_data->data[_res_data->pos++] = HTTP_LF;
-    memcpy(_res_data->data + _res_data->pos, msg, len);
 
-    _res_data->pos += len;
+    const char* JSON_TPL = "{\"key\":\"value\"}";
+    uint16_t chunk_size = strlen(JSON_TPL);
+
+    // chunk size
+    char* in = _res_data->data + _res_data->pos;
+    ns = snprintf(_res_data->data + _res_data->pos, _res_data->len - _res_data->pos, "%hx", chunk_size);
+    _res_data->pos += ns;
+    log_d("make_file_response, chunk_size:%x ns:%d, chunk_size:%d", in[0], ns, chunk_size);
+    _res_data->data[_res_data->pos++] = HTTP_CR;
+    _res_data->data[_res_data->pos++] = HTTP_LF;
+
+    // chunk data
+    memcpy(_res_data->data + _res_data->pos, JSON_TPL, strlen(JSON_TPL));
+    _res_data->pos += strlen(JSON_TPL);
+    _res_data->data[_res_data->pos++] = HTTP_CR;
+    _res_data->data[_res_data->pos++] = HTTP_LF;
+
+
+    // end chunk
+    _res_data->data[_res_data->pos++] = '0';
+    _res_data->data[_res_data->pos++] = HTTP_CR;
+    _res_data->data[_res_data->pos++] = HTTP_LF;
+    _res_data->data[_res_data->pos++] = HTTP_CR;
+    _res_data->data[_res_data->pos++] = HTTP_LF;
+
+    nw = ch->write_buff(_res_data->data, _res_data->pos, 1);
+    log_d("write_buff, nw:%d", nw);
+
+    return 0;
+}
+
+
+int http_message::make_simple_response(http_channel* ch, int status, const char* msg, int len, bool gzip)
+{
+    log_d("make_simple_response, status:%d, msg:%s, len:%d", status, msg, len);
+    _res_data->pos = 0;
+    int ns = snprintf(_res_data->data, _res_data->len, "HTTP/1.1 %d %s\r\n", status, http_status_code_msg(status));
+    _res_data->pos += ns;
+
+    std::string html_msg;
+    html_msg.append(msg, len);
+    utils::string_html_encode(html_msg);
+    log_d("make_simple_response, html_msg:%s", html_msg.c_str());
+
+    _make_simple_response_header();
+    std::string encode_msg;
+    if (gzip) {
+        utils::gzip_encode(html_msg, encode_msg);
+        _res_header->add_data(HTTP_HREADER_CONTENT_ENCODING, HTTP_HREADER_ENCODING_GZIP);
+        _res_header->add_data(HTTP_HEADER_CONTENT_LENGTH, utils::string_format("%zu", encode_msg.size()).c_str());
+    } else {
+
+    }
+
+    int nw = _res_header->write_to_buff(_res_data->data + _res_data->pos, _res_data->len - _res_data->pos);
+    if (nw < 0) {
+        log_d("write_to_buff fail");
+        return -1;
+    }
+    _res_data->pos += nw;
+
+    _res_data->data[_res_data->pos++] = HTTP_CR;
+    _res_data->data[_res_data->pos++] = HTTP_LF;
+
+    if (gzip) {
+        memcpy(_res_data->data + _res_data->pos, encode_msg.data(), encode_msg.size());
+        _res_data->pos += encode_msg.size();
+    } else {
+        memcpy(_res_data->data + _res_data->pos, html_msg.data(), html_msg.size());
+        _res_data->pos += html_msg.size();
+    }
 
     nw = ch->write_buff(_res_data->data, _res_data->pos, 1);
     log_d("write_buff, nw:%d", nw);
@@ -133,10 +203,10 @@ int http_message::_make_simple_response_header()
     _res_header->add_data("server", "uv_http");
 
     // Connection
-    _res_header->add_data("Connection", _keep_alive > 0 ? "keep-alive" : "close");
+    _res_header->add_data(HTTP_HEADER_CONNECTION, _keep_alive > 0 ? HTTP_HEADER_CONNECTION_KEEP_ALIVE : HTTP_HEADER_CONNECTION_CLOSE);
 
     // Content-type
-    _res_header->add_data("Content-Type:", "text/html;charset=UTF-8");
+    _res_header->add_data(HTTP_HEADER_CONTENT_TYPE, "text/html;charset=UTF-8");
     return 0;
 }
 

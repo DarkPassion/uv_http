@@ -38,6 +38,15 @@ public:
 
     static void url_decode(std::string& s, std::string& res);
 
+    //  the gzip compress level -1 = default, 0 = no compression, 1= worst/fastest compression, 9 = best/slowest compression
+    static int gzip_encode(std::string& s, std::string& res, int level = -1);
+
+    static int gzip_encode(const char* in, int inlen, std::string& res, int level = -1);
+
+    static int gzip_decode(std::string& s, std::string& res);
+
+    static int string_html_encode(std::string& s);
+
     static uint64_t get_timestamp();
 
     static void m_assert(const char* expr_str, bool expr, const char* file, int line, const char* msg);

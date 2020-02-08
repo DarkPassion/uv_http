@@ -4,42 +4,48 @@
 
 #include <algorithm>
 #include <sys/time.h>
+#include <zlib.h>
+
 
 #include "util/utils.h"
 #include "util/logger.h"
 
 NS_CC_BEGIN
 
-    static char __char_to_int(char ch);
-    static char __str_to_bin(char* s);
+#define GZIP_CHUNK          (16384)
+#define GZIP_WIND_BITS      (15)
+#define GZIP_ENCODING       (16)
 
-    static char __char_to_int(char ch)
+static char __char_to_int(char ch);
+static char __str_to_bin(char* s);
+
+static char __char_to_int(char ch)
+{
+    if (ch >= '0' && ch <= '9')
     {
-        if (ch >= '0' && ch <= '9')
-        {
-            return (char)(ch - '0');
-        }
-        if (ch >= 'a' && ch <= 'f')
-        {
-            return (char)(ch - 'a' + 10);
-        }
-        if (ch >= 'A' && ch <= 'F')
-        {
-            return (char)(ch - 'A' + 10);
-        }
-        return -1;
+        return (char)(ch - '0');
     }
-
-
-    static char __str_to_bin(char* p)
+    if (ch >= 'a' && ch <= 'f')
     {
-        char buffer[2] = {0};
-        char ch;
-        buffer[0] = __char_to_int(p[0]);    // make the B to 11 -- 00001011
-        buffer[1] = __char_to_int(p[1]);    // make the 0 to 0 -- 00000000
-        ch = (buffer[0] << 4) | buffer[1];      // to change the BO to 10110000
-        return ch;
+        return (char)(ch - 'a' + 10);
     }
+    if (ch >= 'A' && ch <= 'F')
+    {
+        return (char)(ch - 'A' + 10);
+    }
+    return -1;
+}
+
+
+static char __str_to_bin(char* p)
+{
+    char buffer[2] = {0};
+    char ch;
+    buffer[0] = __char_to_int(p[0]);    // make the B to 11 -- 00001011
+    buffer[1] = __char_to_int(p[1]);    // make the 0 to 0 -- 00000000
+    ch = (buffer[0] << 4) | buffer[1];      // to change the BO to 10110000
+    return ch;
+}
 
 void utils::string_split(const std::string &s, std::vector<std::string> &res, const std::string &delimiter)
 {
@@ -162,6 +168,100 @@ void utils::url_decode(std::string &s, std::string &res)
             i++;
         }
     }
+}
+
+int utils::gzip_encode(const char *in, int inlen, std::string &res, int level)
+{
+    unsigned char out[GZIP_CHUNK];
+    z_stream strm;
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+    if (deflateInit2(&strm, level, Z_DEFLATED, GZIP_WIND_BITS | GZIP_ENCODING, 8, Z_DEFAULT_STRATEGY) != Z_OK)
+    {
+        return -1;
+    }
+    strm.next_in = (unsigned char*) in;
+    strm.avail_in = (uInt) inlen;
+    do {
+        int have;
+        strm.avail_out = GZIP_CHUNK;
+        strm.next_out = out;
+        if (deflate(&strm, Z_FINISH) == Z_STREAM_ERROR)
+        {
+            return -1;
+        }
+        have = GZIP_CHUNK - strm.avail_out;
+        res.append((char*)out, have);
+    } while (strm.avail_out == 0);
+    if (deflateEnd(&strm) != Z_OK)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+int utils::gzip_encode(std::string &s, std::string &res, int level)
+{
+    return gzip_encode(s.data(), s.size(), res, level);
+}
+
+int utils::gzip_decode(std::string &s, std::string &res)
+{
+    int ret;
+    unsigned have;
+    z_stream strm;
+    unsigned char out[GZIP_CHUNK];
+
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+    strm.avail_in = 0;
+    strm.next_in = Z_NULL;
+    if (inflateInit2(&strm, 16 + MAX_WBITS) != Z_OK)
+    {
+        return -1;
+    }
+
+    strm.avail_in = (uInt) s.size();
+    strm.next_in = (unsigned char*) s.data();
+    do {
+        strm.avail_out = GZIP_CHUNK;
+        strm.next_out = out;
+        ret = inflate(&strm, Z_NO_FLUSH);
+        switch (ret) {
+            case Z_NEED_DICT:
+            case Z_DATA_ERROR:
+            case Z_MEM_ERROR:
+                inflateEnd(&strm);
+                return -1;
+        }
+        have = GZIP_CHUNK - strm.avail_out;
+        res.append((char*)out, have);
+    } while (strm.avail_out == 0);
+
+    if (inflateEnd(&strm) != Z_OK) {
+        return -1;
+    }
+    return 0;
+}
+
+int utils::string_html_encode(std::string& s)
+{
+    std::string buffer;
+    buffer.reserve(s.size());
+    for(size_t pos = 0; pos != s.size(); ++pos) {
+        switch(s[pos]) {
+            case '&':  buffer.append("&amp;");       break;
+            case '\"': buffer.append("&quot;");      break;
+            case '\'': buffer.append("&apos;");      break;
+            case '<':  buffer.append("&lt;");        break;
+            case '>':  buffer.append("&gt;");        break;
+            default:   buffer.append(&s[pos], 1); break;
+        }
+    }
+    s.swap(buffer);
+    return 0;
 }
 
 

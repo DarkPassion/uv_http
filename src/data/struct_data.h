@@ -34,7 +34,7 @@ void send_data_destory(send_data** s);
 
 const char* http_status_code_msg(int code);
 
-
+const char* http_content_type(const char* ext);
 
 
 NS_CC_END

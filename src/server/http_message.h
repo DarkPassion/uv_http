@@ -26,7 +26,9 @@ public:
 
     http_url* get_url();
 
-    int make_simple_response(http_channel* ch, int status, const char* msg, int len);
+    int make_file_response(http_channel* ch, const char* path);
+
+    int make_simple_response(http_channel* ch, int status, const char* msg, int len, bool gzip = false);
 
     int make_simple_404(http_channel* ch);
 

@@ -59,7 +59,12 @@
 #define HTTP_HEADER_LOCATION                "Location"
 #define HTTP_HEADER_CONTENT_LENGTH          "Content-Length"
 #define HTTP_HEADER_USER_AGENT              "User-Agent"
-
+#define HTTP_HEADER_CONTENT_TYPE            "Content-Type"
+#define HTTP_HEADER_CONNECTION              "Connection"
+#define HTTP_HEADER_CONNECTION_CLOSE        "close"
+#define HTTP_HEADER_CONNECTION_KEEP_ALIVE   "keep-alive"
+#define HTTP_HREADER_CONTENT_ENCODING       "Content-Encoding"
+#define HTTP_HREADER_ENCODING_GZIP          "gzip"
 
 #if (defined (_DEBUG) || defined(DEBUG))
 #define M_ASSERT(expr, msg)     utils::m_assert(#expr, expr, __FILE__, __LINE__, msg);

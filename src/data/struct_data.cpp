@@ -17,25 +17,14 @@ struct http_status_msg
     const char* fname[MAX_STATUS_NUM];
 };
 
-static http_status_msg* __msg = NULL;
-
-void send_data_destory(send_data** s)
+struct http_content_type_msg
 {
-    if (s == NULL) {
-        return ;
-    }
+    const char* ext[MAX_STATUS_NUM];
+    const char* type[MAX_STATUS_NUM];
+};
 
-    send_data* sp = *s;
-
-    if (sp->buff_alloc && sp->buf.base) {
-        free(sp->buf.base);
-        sp->buf.base = NULL;
-        sp->buf.len = 0;
-    }
-
-    delete sp;
-    *s = NULL;
-}
+static http_status_msg* __msg = NULL;
+static http_content_type_msg* __type = NULL;
 
 /* Status Codes */
 #define HTTP_STATUS_MAP(XX)                                                 \
@@ -100,7 +89,38 @@ void send_data_destory(send_data** s)
   XX(511, NETWORK_AUTHENTICATION_REQUIRED, Network Authentication Required) \
 
 
+#define HTTP_CONTENT_TYPE_MAP(XX)                                           \
+    XX(1,   HTML,                     text/html)                            \
+    XX(2,   TXT,                      text/plain)                           \
+    XX(3,   GIF,                      image/gif)                            \
+    XX(4,   JPG,                      image/jpeg)                           \
+    XX(5,   PNG,                      image/png)                            \
+    XX(6,   XHTML,                    application/xhtml+xml)                \
+    XX(7,   XML,                      application/xml)                      \
+    XX(8,   JSON,                     application/json)                     \
+    XX(9,   PDF,                      application/pdf)                      \
+    XX(10,  BIN,                      application/octet-stream)             \
 
+
+
+
+void send_data_destory(send_data** s)
+{
+    if (s == NULL) {
+        return ;
+    }
+
+    send_data* sp = *s;
+
+    if (sp->buff_alloc && sp->buf.base) {
+        free(sp->buf.base);
+        sp->buf.base = NULL;
+        sp->buf.len = 0;
+    }
+
+    delete sp;
+    *s = NULL;
+}
 
 const char* http_status_code_msg(int code)
 {
@@ -114,6 +134,27 @@ const char* http_status_code_msg(int code)
 
     M_ASSERT(code  >= 0 && code <= MAX_STATUS_NUM, "code error");
     return __msg->msg[code];
+}
+
+const char* http_content_type(const char* ext)
+{
+    if (__type == NULL) {
+        __type = new http_content_type_msg();
+        memset(__type, 0, sizeof(http_content_type_msg));
+#define XX(num, name, string) __type->ext[num]=#name; __type->type[num]=#string;
+        HTTP_CONTENT_TYPE_MAP(XX)
+#undef XX
+    }
+
+    std::string ext_str = ext;
+    utils::string_upper(ext_str);
+
+    for (int i = 0; i < ARRAY_SIZE(__type->ext); i++) {
+        if (__type->ext[i] && ext_str.compare(__type->ext[i]) == 0) {
+            return __type->type[i];
+        }
+    }
+    return "";
 }
 
 

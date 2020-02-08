@@ -22,6 +22,8 @@
 #include "openssl/aes.h"
 #include "openssl/rsa.h"
 
+#include <sys/stat.h>
+
 NS_CC_BEGIN
 
 http_test::http_test()
@@ -498,6 +500,7 @@ void http_test::__test_http_server()
     http_server* server = new http_server();
 
     server->add_handler("/service", __http_server_handler_service, this);
+    server->add_handler("/fs", __http_server_handler_files, this);
     int ret = server->start_server("127.0.0.1", 8080);
     log_d("start_server, ret:%d", ret);
 
@@ -513,7 +516,7 @@ int http_test::__http_server_handler_service(uv_http::http_message *msg, uv_http
     int np = 0;
     int ns = 0;
 
-    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " host:%s\r\n", msg->get_url()->get_host().c_str());
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " host:%s", msg->get_url()->get_host().c_str());
     np += ns;
 
     ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " port:%s\r\n", msg->get_url()->get_port().c_str());
@@ -531,7 +534,7 @@ int http_test::__http_server_handler_service(uv_http::http_message *msg, uv_http
     ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " url:%s\r\n", msg->get_url()->get_full_url().c_str());
     np += ns;
 
-    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " User-Agent :%s\r\n", msg->get_request_http_header()->get_value_by_key("User-Agent").c_str());
+    ns = snprintf(buf + np, ARRAY_SIZE(buf) - np, " User-Agent :%s\r\n", msg->get_request_http_header()->get_value_by_key(HTTP_HEADER_USER_AGENT).c_str());
     np += ns;
 
     ns = msg->make_simple_response(channel, 200, buf, np);
@@ -539,6 +542,26 @@ int http_test::__http_server_handler_service(uv_http::http_message *msg, uv_http
     return 0;
 }
 
+int http_test::__http_server_handler_files(uv_http::http_message *msg, uv_http::http_channel *channel, void *user)
+{
+    http_test* pthis = (http_test*) user;
+    const char* root_path = "/my_root_path/";
+
+    std::string path = msg->get_url()->get_path();
+    std::string file = root_path;
+    file.append(path);
+
+//    struct stat st;
+//    if (stat(file.c_str(), &st) != 0) {
+//        msg->make_simple_404(channel);
+//        return 0;
+//    }
+
+
+    int ret = msg->make_file_response(channel, file.c_str());
+
+    return 0;
+}
 
 
 class http_parser_wrapper

@@ -88,7 +88,7 @@ file(GLOB CPP_SRC
 
 add_executable(uv-http ${DEPS_SRC} ${C_SRC} ${CPP_SRC} ${uv_sources})
 
-target_link_libraries(uv-http ssl crypto)
+target_link_libraries(uv-http ssl crypto z)
 #link_libraries(uv-http uv)
 
 
