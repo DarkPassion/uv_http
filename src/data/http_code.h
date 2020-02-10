@@ -9,15 +9,21 @@
 
 NS_CC_BEGIN
 
-    enum error_code {
-        ERROR_SUCC = 0,
-        ERROR_DNS_RESOLVE = 1,
-        ERROR_CONNECT = 2,
-        ERROR_SOCKET_READ = 3,
-        ERROR_SOCKET_WRITE = 4,
-        ERROR_TIMEOUT = 5,
-        ERROR_INTERNAL = 6,
-    };
+enum error_code {
+    ERROR_SUCC = 0,
+    ERROR_DNS_RESOLVE = 1,
+    ERROR_CONNECT = 2,
+    ERROR_SOCKET_READ = 3,
+    ERROR_SOCKET_WRITE = 4,
+    ERROR_TIMEOUT = 5,
+    ERROR_INTERNAL = 6,
+};
+
+
+
+const char* http_status_code_msg(int code);
+
+const char* http_content_type(const char* ext);
 
 NS_CC_END
 

@@ -45,13 +45,6 @@ private:
         size_t len;
     };
 
-    struct status_code
-    {
-        const char* msg;
-        int status;
-    };
-
-
 
 private:
     http_header* _req_header;

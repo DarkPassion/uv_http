@@ -2,12 +2,13 @@
 // Created by zhifan zhang on 2020/2/7.
 //
 
-#include <string.h>
-
-#include "data/struct_data.h"
+#include <string>
 #include "util/utils.h"
+#include "data/http_code.h"
+
 
 NS_CC_BEGIN
+
 
 #define MAX_STATUS_NUM  (1024)
 
@@ -25,6 +26,8 @@ struct http_content_type_msg
 
 static http_status_msg* __msg = NULL;
 static http_content_type_msg* __type = NULL;
+
+
 
 /* Status Codes */
 #define HTTP_STATUS_MAP(XX)                                                 \
@@ -101,26 +104,6 @@ static http_content_type_msg* __type = NULL;
     XX(9,   PDF,                      application/pdf)                      \
     XX(10,  BIN,                      application/octet-stream)             \
 
-
-
-
-void send_data_destory(send_data** s)
-{
-    if (s == NULL) {
-        return ;
-    }
-
-    send_data* sp = *s;
-
-    if (sp->buff_alloc && sp->buf.base) {
-        free(sp->buf.base);
-        sp->buf.base = NULL;
-        sp->buf.len = 0;
-    }
-
-    delete sp;
-    *s = NULL;
-}
 
 const char* http_status_code_msg(int code)
 {

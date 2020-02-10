@@ -8,7 +8,7 @@
 #include "http/http_request.h"
 #include "http/http_form.h"
 #include "data/buffer_cache.h"
-#include "data/struct_data.h"
+#include "data/send_data.h"
 #include "server/http_server.h"
 #include "server/http_message.h"
 #include "server/http_channel.h"
@@ -500,7 +500,7 @@ void http_test::__test_http_server()
     http_server* server = new http_server();
 
     server->add_handler("/service", __http_server_handler_service, this);
-    server->add_handler("/fs", __http_server_handler_files, this);
+    server->add_handler("/static", __http_server_handler_files, this);
     int ret = server->start_server("127.0.0.1", 8080);
     log_d("start_server, ret:%d", ret);
 
@@ -545,18 +545,20 @@ int http_test::__http_server_handler_service(uv_http::http_message *msg, uv_http
 int http_test::__http_server_handler_files(uv_http::http_message *msg, uv_http::http_channel *channel, void *user)
 {
     http_test* pthis = (http_test*) user;
-    const char* root_path = "/my_root_path/";
-
+    const char* root_path = "/uv-http/images/";
+    const char* fs = "/static";
     std::string path = msg->get_url()->get_path();
+    if (utils::string_start_with(path, fs)) {
+        path = path.substr(strlen(fs));
+    }
     std::string file = root_path;
     file.append(path);
 
-//    struct stat st;
-//    if (stat(file.c_str(), &st) != 0) {
-//        msg->make_simple_404(channel);
-//        return 0;
-//    }
-
+    struct stat st;
+    if (stat(file.c_str(), &st) != 0) {
+        msg->make_simple_404(channel);
+        return 0;
+    }
 
     int ret = msg->make_file_response(channel, file.c_str());
 

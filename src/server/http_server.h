@@ -25,6 +25,7 @@ NS_CC_BEGIN
 class http_channel;
 class http_message;
 class http_route;
+class buffer_cache;
 class http_server {
 
 public:
@@ -44,6 +45,11 @@ private:
     int _init_uv_data();
 
     int _deinit_uv_data();
+
+private:
+    static void _static_malloc_handler(uint8_t** data, uint32_t& len, void* user);
+
+    static void _static_free_handler(uint8_t* data, uint32_t len, void* user);
 
     static void __uv_thread_entry_static(void* data);
 
@@ -76,7 +82,7 @@ private:
     private_data    _pd;
     channel_queue   _channels;
     http_route*      _route;
-
+    buffer_cache*   _buffer;
 };
 
 NS_CC_END

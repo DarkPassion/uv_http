@@ -24,6 +24,8 @@ NS_CC_BEGIN
 
 class http_header;
 class http_message;
+class send_queue;
+struct send_data;
 class http_channel {
 
 public:
@@ -35,13 +37,18 @@ public:
 
     int stop_read();
 
-    int write_buff(const char* buf, int len, uint8_t end);
+    int write_buff(send_data* data, uint8_t end);
 
     int check_update();
 
     uv_tcp_t* get_client();
 
     int set_make_response_handler(int(*cb)(http_message*, http_channel*, void* user), void* user);
+
+    int set_malloc_handler(void(*cb)(uint8_t** data, uint32_t& len, void* user), void* user);
+
+    int set_free_handler(void(*cb)(uint8_t* data, uint32_t len, void* user), void* user);
+
 
     friend class http_message;
 private:
@@ -71,11 +78,21 @@ private:
     // typedef
     typedef int (*make_response_handler) (http_message* msg, http_channel* ch, void* user);
 
+    typedef void (*malloc_handler) (uint8_t** data, uint32_t& len, void* user);
+
+    typedef void (*free_handler) (uint8_t* data, uint32_t, void* user);
+
 private:
     struct handler
     {
         make_response_handler make_response;
         void* make_response_user;
+
+        malloc_handler _malloc;
+        void* _malloc_user;
+
+        free_handler _free;
+        void*  _free_user;
     };
 
 
@@ -90,7 +107,7 @@ private:
         http_parser_settings _settings;
 
         http_message*   _msg;
-
+        send_queue*     _sed_q;
         uint8_t         _is_complete;
         uint8_t         _is_write_end;
         char   _req_host[URL_MAX_LEN];

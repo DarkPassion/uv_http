@@ -10,6 +10,7 @@
 #include "server/http_channel.h"
 #include "server/http_message.h"
 #include "server/http_route.h"
+#include "data/buffer_cache.h"
 #include "util/logger.h"
 
 #define SERVER_TIMER_INTERVAL        (1000)
@@ -21,12 +22,22 @@ http_server::http_server()
     memset(&_pd, 0, sizeof(private_data));
     _channels.clear();
     _route = new http_route();
+    _buffer = new buffer_cache();
     log_d("http_server ctor");
 }
 
 http_server::~http_server()
 {
     _deinit_private_data();
+    if (_buffer) {
+        delete _buffer;
+        _buffer = NULL;
+    }
+    if (_route) {
+        delete _route;
+        _route = NULL;
+    }
+
     log_d("http_server dctor");
 }
 
@@ -146,6 +157,19 @@ int http_server::_deinit_uv_data()
 }
 
 
+void http_server::_static_malloc_handler(uint8_t** data, uint32_t& len, void* user)
+{
+    http_server* pthis = (http_server*) user;
+    int ret = pthis->_buffer->malloc_buffer(data, len);
+    log_d("_static_malloc_handler, len:%d, ret:%d", len, ret);
+}
+
+void http_server::_static_free_handler(uint8_t* data, uint32_t len, void* user)
+{
+    http_server* pthis = (http_server*) user;
+    int ret = pthis->_buffer->free_buffer(data);
+    log_d("_static_free_handler, len:%d, ret:%d", len, ret);
+}
 
 // uv callback
 void http_server::__uv_thread_entry_static(void *data)
@@ -195,6 +219,9 @@ void http_server::_static_uv_connection_callback(uv_stream_t *server, int status
 
     http_channel* ch = new http_channel(pthis->_pd._loop);
     ch->set_make_response_handler(http_route::__static_route_index, pthis->_route);
+    ch->set_malloc_handler(_static_malloc_handler, pthis);
+    ch->set_free_handler(_static_free_handler, pthis);
+
     int ret = uv_accept(server, (uv_stream_t*) ch->get_client());
     if (ret != 0) {
         delete ch;

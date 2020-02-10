@@ -7,7 +7,7 @@
 #include "server/http_message.h"
 #include "http/http_header.h"
 #include "http/http_url.h"
-#include "data/struct_data.h"
+#include "data/send_data.h"
 #include "data/http_code.h"
 #include "util/utils.h"
 #include "util/logger.h"
@@ -41,6 +41,7 @@ http_channel::http_channel(uv_loop_t* loop)
     _pd._settings.on_message_complete = &http_channel::_static_parser_message_complete;
 
     _pd._msg = new http_message();
+    _pd._sed_q = new send_queue();
 
     memset(_pd._req_path, 0, ARRAY_SIZE(_pd._req_path));
     memset(_pd._req_host, 0, ARRAY_SIZE(_pd._req_host));
@@ -58,6 +59,11 @@ http_channel::~http_channel()
     if (_pd._msg) {
         delete _pd._msg;
         _pd._msg = NULL;
+    }
+
+    if (_pd._sed_q) {
+        delete _pd._sed_q;
+        _pd._sed_q = NULL;
     }
 
     if (_pd._paser) {
@@ -78,6 +84,22 @@ int http_channel::set_make_response_handler(int (*cb)(http_message *, http_chann
     log_d("set_make_response_handler, cb:%p", cb);
     _pd._handler.make_response = cb;
     _pd._handler.make_response_user = user;
+    return 0;
+}
+
+int http_channel::set_malloc_handler(void (*cb)(uint8_t **, uint32_t &, void *), void *user)
+{
+    log_d("set_malloc_handler, cb:%p", cb);
+    _pd._handler._malloc = cb;
+    _pd._handler._malloc_user = user;
+    return 0;
+}
+
+int http_channel::set_free_handler(void (*cb)(uint8_t *, uint32_t, void *), void *user)
+{
+    log_d("set_free_handler, cb:%p", user);
+    _pd._handler._free = cb;
+    _pd._handler._free_user = user;
     return 0;
 }
 
@@ -105,7 +127,7 @@ int http_channel::stop_read()
     return 0;
 }
 
-int http_channel::write_buff(const char *buf, int len, uint8_t end)
+int http_channel::write_buff(send_data* data, uint8_t end)
 {
     if (!uv_is_active((uv_handle_t*) _pd._client)) {
         log_d("write_buff, uv_is_active false");
@@ -114,17 +136,12 @@ int http_channel::write_buff(const char *buf, int len, uint8_t end)
 
     _pd._is_write_end = end;
 
-    send_data* __send = new send_data;
-    memset(__send, 0, sizeof(send_data));
-    __send->write.data = __send;
-    __send->data = this;
-    __send->buf.base = (char*) buf;
-    __send->buf.len = len;
 
-    int ret = uv_write(&__send->write, (uv_stream_t*) _pd._client, &__send->buf, 1, _static_uv_write_callback);
+    int ret = uv_write(&data->write, (uv_stream_t*) _pd._client, data->buf, data->nbuf, _static_uv_write_callback);
     log_d("_input_parser_data, uv_write ret:%d", ret);
     return 0;
 }
+
 
 
 int http_channel::check_update()
@@ -266,7 +283,7 @@ void http_channel::_static_uv_write_callback(uv_write_t *req, int status)
     send_data* __send = (send_data*) req->data;
     http_channel* pthis = (http_channel*) __send->data;
 
-    send_data_destory(&__send);
+    pthis->_pd._sed_q->delete_data(__send);
 
     if (status == UV_ECANCELED) {
         log_t("_static_uv_write_callback has been close");

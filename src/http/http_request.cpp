@@ -20,7 +20,7 @@
 #include "util/logger.h"
 #include "data/buffer_cache.h"
 #include "data/http_code.h"
-#include "data/struct_data.h"
+#include "data/send_data.h"
 
 NS_CC_BEGIN
 
@@ -515,10 +515,10 @@ int http_request::_ssl_trans_flush_read_bio()
         memset(__send, 0, sizeof(send_data));
         __send->write.data = __send;
         __send->data = this;
-        __send->buf.base = (char*) wb_data;
-        __send->buf.len = bytes_read;
+        __send->buf[0].base = (char*) wb_data;
+        __send->buf[0].len = bytes_read;
 
-        ret = uv_write(&__send->write, (uv_stream_t*) _pd._conn, &__send->buf, 1, _static_uv_write_cb);
+        ret = uv_write(&__send->write, (uv_stream_t*) _pd._conn, __send->buf, 1, _static_uv_write_cb);
         if (ret != 0) {
             log_t("uv_write failed %d ", ret);
             _pd.error_code = ERROR_SOCKET_WRITE;
@@ -896,11 +896,11 @@ void http_request::_static_uv_write_cb(uv_write_t *req, int status)
     send_data* __send = (send_data*) req->data;
     http_request* pthis = (http_request*) __send->data;
 
-    if (__send->buf.base != NULL && __send->buf.len > 0 && pthis && pthis->_pd._trans) {
-        int ret = pthis->_pd._trans->wb->free_buffer((uint8_t*) __send->buf.base);
+    if (__send->buf[0].base != NULL && __send->buf[0].len > 0 && pthis && pthis->_pd._trans) {
+        int ret = pthis->_pd._trans->wb->free_buffer((uint8_t*) __send->buf[0].base);
         log_d("_static_uv_write_cb free_buffer ret:%d", ret);
     }
-    send_data_destory(&__send);
+    delete __send;
 
     if (status == UV_ECANCELED) {
         log_t("_static_uv_write_cb has been close");
