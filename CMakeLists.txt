@@ -6,17 +6,21 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
 set(UV_DIR deps/libuv)
 set(SSL_DIR deps/openssl)
+set(WOLF_SSL_DIR deps/wolfssl)
 
 set(HTTP_PARSER_DIR deps/http-parser)
+set(WS_PARSER_DIR deps/ws-parser)
 
 include_directories(
         ${UV_DIR}/include/
         ${UV_DIR}/src/
         ${SSL_DIR}/include/
         ${HTTP_PARSER_DIR}
+        ${WS_PARSER_DIR}
+        ${WOLF_SSL_DIR}/include
         src)
 
-link_directories(${SSL_DIR}/libs)
+link_directories(${SSL_DIR}/libs ${WOLF_SSL_DIR}/lib)
 
 add_definitions("-DDEBUG -D_DEBUG -DTEST_SELF -O0")
 #add_definitions("-DNDEBUG -D_NDEBUG -O3")
@@ -70,7 +74,8 @@ endif()
 
 
 file(GLOB DEPS_SRC
-        ${HTTP_PARSER_DIR}/*.c)
+        ${HTTP_PARSER_DIR}/*.c
+        ${WS_PARSER_DIR}/*.c)
 
 file(GLOB C_SRC
         src/*.c
@@ -83,12 +88,13 @@ file(GLOB CPP_SRC
         src/client/*.cpp src/client/*.cc
         src/server/*.cpp src/server/*.cc
         src/data/*.cpp src/data/*.cc
-        src/test/*.cpp src/test/*.cc)
+        src/test/*.cpp src/test/*.cc
+        src/websocket/*.cpp src/websocket/*.cc)
 
 
 add_executable(uv-http ${DEPS_SRC} ${C_SRC} ${CPP_SRC} ${uv_sources})
 
-target_link_libraries(uv-http ssl crypto z)
+target_link_libraries(uv-http ssl crypto z wolfssl)
 #link_libraries(uv-http uv)
 
 
